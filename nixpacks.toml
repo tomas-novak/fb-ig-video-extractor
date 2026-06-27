@@ -1,0 +1,3 @@
+# Railway/Nixpacks: nainstaluj ffmpeg navíc k auto-detekovanému Pythonu
+[phases.setup]
+aptPkgs = ["ffmpeg"]
