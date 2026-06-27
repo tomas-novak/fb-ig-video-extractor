@@ -14,10 +14,12 @@ MAP_HTML = r"""<!DOCTYPE html>
   #panel {
     position: absolute; z-index: 1000; top: 10px; left: 10px; right: 10px;
     background: rgba(255,255,255,0.96); border-radius: 12px; padding: 10px 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 520px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 560px;
+    max-height: 70vh; overflow-y: auto;
   }
   #panel h1 { font-size: 16px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
   #panel h1 .count { font-size: 12px; font-weight: normal; color: #666; }
+  .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin: 8px 0 4px; }
   .filters { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
@@ -26,6 +28,7 @@ MAP_HTML = r"""<!DOCTYPE html>
   }
   .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
   .chip.off { opacity: .35; }
+  .chip.tag.on { border-color: #333; background: #333; color: #fff; }
   .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .popup-cat { display: inline-block; color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-bottom: 6px; }
   .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
@@ -37,7 +40,10 @@ MAP_HTML = r"""<!DOCTYPE html>
 <body>
 <div id="panel">
   <h1>🗺️ Výlety <span class="count" id="count"></span></h1>
-  <div class="filters" id="filters"></div>
+  <div class="group-label">Kategorie</div>
+  <div class="filters" id="cat-filters"></div>
+  <div class="group-label">Tagy</div>
+  <div class="filters" id="tag-filters"></div>
   <div id="status"></div>
 </div>
 <div id="map"></div>
@@ -51,34 +57,57 @@ const COLORS = {
 };
 function colorFor(cat){ return COLORS[cat] || COLORS["jiné"]; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function parseTags(s){ return (s||"").split(",").map(t => t.trim()).filter(Boolean); }
 
 const map = L.map("map").setView([49.8, 15.5], 7);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "© OpenStreetMap"
 }).addTo(map);
 
-const layers = {};   // kategorie -> L.layerGroup
-const active = {};   // kategorie -> bool
+const markers = [];      // {marker, category, tags[]}
+const activeCat = {};    // kategorie -> bool (default true)
+const activeTag = {};    // tag -> bool (default true)
 
-function ensureLayer(cat){
-  if(!layers[cat]){
-    layers[cat] = L.layerGroup().addTo(map);
-    active[cat] = true;
-  }
-  return layers[cat];
+function placeVisible(item){
+  if(!activeCat[item.category]) return false;
+  if(item.tags.length === 0) return true;          // místa bez tagů filtr nevyřazuje
+  return item.tags.some(t => activeTag[t]);         // aspoň jeden tag zapnutý
 }
 
-function renderFilters(){
-  const box = document.getElementById("filters");
+function applyFilters(){
+  let shown = 0;
+  markers.forEach(item => {
+    const vis = placeVisible(item);
+    if(vis){ if(!map.hasLayer(item.marker)) item.marker.addTo(map); shown++; }
+    else   { if(map.hasLayer(item.marker)) map.removeLayer(item.marker); }
+  });
+  document.getElementById("count").textContent = "(" + shown + " / " + markers.length + " míst)";
+}
+
+function buildCatFilters(){
+  const box = document.getElementById("cat-filters");
   box.innerHTML = "";
-  Object.keys(layers).sort().forEach(cat => {
+  Object.keys(activeCat).sort().forEach(cat => {
     const chip = document.createElement("span");
-    chip.className = "chip" + (active[cat] ? "" : " off");
+    chip.className = "chip" + (activeCat[cat] ? "" : " off");
     chip.innerHTML = '<span class="dot" style="background:'+colorFor(cat)+'"></span>'+esc(cat);
+    chip.onclick = () => { activeCat[cat] = !activeCat[cat]; chip.classList.toggle("off"); applyFilters(); };
+    box.appendChild(chip);
+  });
+}
+
+function buildTagFilters(){
+  const box = document.getElementById("tag-filters");
+  box.innerHTML = "";
+  Object.keys(activeTag).sort((a,b)=>a.localeCompare(b,'cs')).forEach(tag => {
+    const chip = document.createElement("span");
+    chip.className = "chip tag on";
+    chip.textContent = "#" + tag;
     chip.onclick = () => {
-      active[cat] = !active[cat];
-      if(active[cat]) layers[cat].addTo(map); else map.removeLayer(layers[cat]);
-      chip.classList.toggle("off");
+      activeTag[tag] = !activeTag[tag];
+      chip.classList.toggle("on", activeTag[tag]);
+      chip.classList.toggle("off", !activeTag[tag]);
+      applyFilters();
     };
     box.appendChild(chip);
   });
@@ -86,11 +115,12 @@ function renderFilters(){
 
 fetch("/data").then(r => r.json()).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
-  document.getElementById("count").textContent = "(" + places.length + " míst)";
   const bounds = [];
   places.forEach(p => {
     const cat = p.category || "jiné";
-    const grp = ensureLayer(cat);
+    const tags = parseTags(p.tags);
+    activeCat[cat] = true;
+    tags.forEach(t => activeTag[t] = true);
     const m = L.circleMarker([p.lat, p.lng], {
       radius: 9, color: "#fff", weight: 2, fillColor: colorFor(cat), fillOpacity: 0.9
     });
@@ -100,10 +130,13 @@ fetch("/data").then(r => r.json()).then(places => {
     if(p.summary) html += '<div class="popup-summary">'+esc(p.summary)+'</div>';
     if(p.url) html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">Otevřít video</a></div>';
     m.bindPopup(html);
-    grp.addLayer(m);
+    m.addTo(map);
+    markers.push({ marker: m, category: cat, tags: tags });
     bounds.push([p.lat, p.lng]);
   });
-  renderFilters();
+  buildCatFilters();
+  buildTagFilters();
+  applyFilters();
   if(bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
 }).catch(e => {
   document.getElementById("status").textContent = "Nepodařilo se načíst data: " + e;
