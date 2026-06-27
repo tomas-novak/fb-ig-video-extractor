@@ -113,20 +113,28 @@ async def debug():
 
 
 @app.get("/testdownload")
-async def test_download(url: str, secret: str = ""):
-    """Diagnostika: zkusí stáhnout audio přímo na serveru a vrátí výsledek/chybu."""
+async def test_download(url: str, secret: str = "", full: int = 0):
+    """Diagnostika: zkusí stáhnout (a volitelně analyzovat) přímo na serveru."""
     if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=403, detail="bad secret")
     import traceback
     audio_path = None
     try:
         audio_path, info = await asyncio.to_thread(download_audio, url)
-        return {
+        result = {
             "ok": True,
+            "step": "download",
             "size_bytes": os.path.getsize(audio_path),
             "title": (info.get("title") or "")[:120],
             "uploader": info.get("uploader") or info.get("channel"),
         }
+        if full:
+            metadata = await asyncio.to_thread(analyze, audio_path, url, info)
+            result["step"] = "analyze"
+            result["location_name"] = metadata.location_name
+            result["category"] = metadata.category
+            result["tags"] = metadata.tags
+        return result
     except Exception as e:
         return JSONResponse({
             "ok": False,
