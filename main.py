@@ -6,12 +6,14 @@ import httpx
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
 from extractor import download_audio, extract_source, ffmpeg_diagnostics
 from analyzer import analyze
-from sheets import append_row
+from sheets import append_row, read_rows
+from map_page import MAP_HTML
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -108,6 +110,20 @@ async def health():
 @app.get("/debug")
 async def debug():
     return ffmpeg_diagnostics()
+
+
+@app.get("/data")
+async def data():
+    try:
+        places = await asyncio.to_thread(read_rows)
+        return JSONResponse(places)
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.get("/map", response_class=HTMLResponse)
+async def map_view():
+    return HTMLResponse(MAP_HTML)
 
 
 # Pomocný skript pro registraci webhooku
