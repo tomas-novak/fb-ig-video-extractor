@@ -4,8 +4,19 @@ import google.generativeai as genai
 from models import VideoMetadata
 
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-_model = genai.GenerativeModel("gemini-2.5-flash")
+_model = None
+
+
+def _get_model():
+    """Lazy init – Gemini se konfiguruje až při prvním použití, ne při importu."""
+    global _model
+    if _model is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("Chybí proměnná prostředí GEMINI_API_KEY")
+        genai.configure(api_key=api_key)
+        _model = genai.GenerativeModel("gemini-2.5-flash")
+    return _model
 
 SYSTEM_PROMPT = """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš přepis mluveného slova z videa a URL.
 
@@ -29,6 +40,7 @@ Pravidla:
 
 def analyze(audio_path: str, url: str, yt_info: dict) -> VideoMetadata:
     """Send audio to Gemini, get transcript + metadata in one call."""
+    model = _get_model()
     author = yt_info.get("uploader") or yt_info.get("channel") or ""
     title = yt_info.get("title") or yt_info.get("description", "")[:100] or ""
 
@@ -40,7 +52,7 @@ Titulek/popis: {title}
 
 Přepiš prosím mluvený projev z tohoto audia a extrahuj metadata o místě."""
 
-    response = _model.generate_content(
+    response = model.generate_content(
         [audio_file, SYSTEM_PROMPT + "\n\n" + prompt],
         generation_config=genai.GenerationConfig(
             temperature=0,
