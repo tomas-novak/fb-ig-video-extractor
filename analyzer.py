@@ -56,12 +56,13 @@ Přepiš prosím mluvený projev z tohoto audia a extrahuj metadata o místě.""
         [audio_file, SYSTEM_PROMPT + "\n\n" + prompt],
         generation_config=genai.GenerationConfig(
             temperature=0,
-            max_output_tokens=1000,
+            max_output_tokens=8192,
+            response_mime_type="application/json",
         ),
     )
 
     raw = response.text.strip()
-    # Odstranit případné markdown code fences
+    # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
