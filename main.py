@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 load_dotenv()
 
-from extractor import download_audio, extract_source
+from extractor import download_audio, extract_source, ffmpeg_diagnostics
 from analyzer import analyze
 from sheets import append_row
 
@@ -103,6 +103,11 @@ async def process_video(chat_id: int, url: str) -> None:
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/debug")
+async def debug():
+    return ffmpeg_diagnostics()
 
 
 # Pomocný skript pro registraci webhooku

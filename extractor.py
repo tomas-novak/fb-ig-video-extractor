@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import yt_dlp
 
@@ -15,10 +16,31 @@ def _find_ffmpeg() -> str | None:
     override = os.getenv("FFMPEG_LOCATION")
     if override:
         return override
+    # Primárně přes systémovou PATH (najde apt/nix/winget instalace)
+    on_path = shutil.which("ffmpeg")
+    if on_path:
+        return on_path
     for path in FFMPEG_LOCATIONS:
         if os.path.exists(path):
             return path
     return None
+
+
+def ffmpeg_diagnostics() -> dict:
+    """Diagnostika dostupnosti ffmpeg/ffprobe – pro /debug endpoint."""
+    ffmpeg = _find_ffmpeg()
+    ffprobe_which = shutil.which("ffprobe")
+    ffprobe_sibling = None
+    if ffmpeg:
+        cand = os.path.join(os.path.dirname(ffmpeg), "ffprobe")
+        if os.path.exists(cand):
+            ffprobe_sibling = cand
+    return {
+        "ffmpeg": ffmpeg,
+        "ffprobe_on_path": ffprobe_which,
+        "ffprobe_sibling": ffprobe_sibling,
+        "ffprobe_available": bool(ffprobe_which or ffprobe_sibling),
+    }
 
 
 def download_audio(url: str) -> tuple[str, dict]:
