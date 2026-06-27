@@ -112,6 +112,37 @@ async def debug():
     return ffmpeg_diagnostics()
 
 
+@app.get("/testdownload")
+async def test_download(url: str, secret: str = ""):
+    """Diagnostika: zkusí stáhnout audio přímo na serveru a vrátí výsledek/chybu."""
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="bad secret")
+    import traceback
+    audio_path = None
+    try:
+        audio_path, info = await asyncio.to_thread(download_audio, url)
+        return {
+            "ok": True,
+            "size_bytes": os.path.getsize(audio_path),
+            "title": (info.get("title") or "")[:120],
+            "uploader": info.get("uploader") or info.get("channel"),
+        }
+    except Exception as e:
+        return JSONResponse({
+            "ok": False,
+            "error_type": type(e).__name__,
+            "error": str(e)[:1500],
+            "traceback": traceback.format_exc()[-1500:],
+        }, status_code=500)
+    finally:
+        if audio_path and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+                os.rmdir(os.path.dirname(audio_path))
+            except OSError:
+                pass
+
+
 @app.get("/data")
 async def data():
     try:
