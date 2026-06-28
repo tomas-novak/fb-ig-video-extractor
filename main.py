@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
-from extractor import download_media, ffmpeg_diagnostics, list_formats, probe_download
+from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
 from sheets import append_row, read_rows
 from map_page import MAP_HTML
@@ -133,47 +133,6 @@ async def health():
 @app.get("/debug")
 async def debug():
     return ffmpeg_diagnostics()
-
-
-@app.get("/formats")
-async def formats(url: str, secret: str = ""):
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=403, detail="bad secret")
-    try:
-        return await asyncio.to_thread(list_formats, url)
-    except Exception as e:
-        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
-
-
-@app.get("/probe")
-async def probe(url: str, secret: str = ""):
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=403, detail="bad secret")
-    try:
-        return await asyncio.to_thread(probe_download, url)
-    except Exception as e:
-        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
-
-
-@app.get("/testfull")
-async def test_full(url: str, secret: str = ""):
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=403, detail="bad secret")
-    media_path = None
-    try:
-        media_path, info = await asyncio.to_thread(download_media, url)
-        m = await asyncio.to_thread(analyze, media_path, url, info)
-        return {"location_name": m.location_name, "category": m.category,
-                "tags": m.tags, "transcript": m.transcript[:300]}
-    except Exception as e:
-        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
-    finally:
-        if media_path and os.path.exists(media_path):
-            try:
-                os.remove(media_path)
-                os.rmdir(os.path.dirname(media_path))
-            except OSError:
-                pass
 
 
 @app.get("/data")

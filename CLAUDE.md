@@ -11,21 +11,25 @@ vytáhne obsah videa, přepíše zvuk, extrahuje místo a uloží metadata do Go
 Uživatel (telefon)
   → pošle URL do Telegram botu
       → Python API (Railway)
-          → yt-dlp stáhne video/audio
-          → Gemini Flash přepíše zvuk + extrahuje metadata (jedno API volání)
+          → yt-dlp stáhne VIDEO (ne audio – FB datacentru audio-only stream nenabízí)
+          → Gemini Flash analyzuje video: přepis zvuku + text na obrazovce + popisek (jedno volání)
           → Google Sheets API uloží řádek
           → Telegram Bot API odpoví uživateli
 ```
+
+Pozn.: Posíláme Gemini celé video (ne extrahovaný zvuk). Důvod: na datacenter IP
+Facebook nenabízí samostatný audio stream, jen video. Gemini navíc čte text
+zobrazený ve videu, což zpřesňuje určení místa.
 
 ## Stack
 
 - **Runtime**: Python 3.11+
 - **Web framework**: FastAPI + uvicorn
 - **Telegram**: python-telegram-bot nebo přímé volání Bot API
-- **Video download**: yt-dlp
-- **AI (transkripce + analýza)**: Google Gemini Flash (multimodal audio)
+- **Video download**: yt-dlp (formát `hd/sd/best`)
+- **AI (analýza videa)**: Google Gemini 2.5 Flash (multimodální video – zvuk + obraz)
 - **Databáze**: Google Sheets (google-auth + gspread)
-- **Hosting**: Railway (free tier)
+- **Hosting**: Railway (region EU-West)
 
 ## Klíčové soubory
 
