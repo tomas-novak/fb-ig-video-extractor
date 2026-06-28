@@ -35,12 +35,42 @@ def ffmpeg_diagnostics() -> dict:
         cand = os.path.join(os.path.dirname(ffmpeg), "ffprobe")
         if os.path.exists(cand):
             ffprobe_sibling = cand
+    cookies = _resolve_cookies()
+    cookie_lines = 0
+    if cookies and os.path.exists(cookies):
+        with open(cookies, encoding="utf-8", errors="ignore") as f:
+            cookie_lines = sum(1 for ln in f if ln.strip() and not ln.startswith("#"))
     return {
         "ffmpeg": ffmpeg,
         "ffprobe_on_path": ffprobe_which,
         "ffprobe_sibling": ffprobe_sibling,
         "ffprobe_available": bool(ffprobe_which or ffprobe_sibling),
+        "cookies_configured": bool(cookies),
+        "cookie_entries": cookie_lines,
     }
+
+
+_cookie_path_cache = None
+
+
+def _resolve_cookies() -> str | None:
+    """Vrátí cestu k cookies souboru.
+    Lokálně: COOKIES_FILE = cesta k souboru.
+    Na serveru: INSTAGRAM_COOKIES = obsah cookies.txt (zapíše se do dočasného souboru)."""
+    global _cookie_path_cache
+    path = os.getenv("COOKIES_FILE")
+    if path and os.path.exists(path):
+        return path
+    content = os.getenv("INSTAGRAM_COOKIES")
+    if content:
+        if _cookie_path_cache and os.path.exists(_cookie_path_cache):
+            return _cookie_path_cache
+        fd, tmp = tempfile.mkstemp(prefix="cookies_", suffix=".txt")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        _cookie_path_cache = tmp
+        return tmp
+    return None
 
 
 def download_audio(url: str) -> tuple[str, dict]:
@@ -58,8 +88,11 @@ def download_audio(url: str) -> tuple[str, dict]:
         }],
         "quiet": True,
         "no_warnings": True,
-        "cookiefile": os.getenv("COOKIES_FILE"),
     }
+
+    cookies = _resolve_cookies()
+    if cookies:
+        ydl_opts["cookiefile"] = cookies
 
     ffmpeg = _find_ffmpeg()
     if ffmpeg:
