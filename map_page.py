@@ -53,7 +53,7 @@ MAP_HTML = r"""<!DOCTYPE html>
 const COLORS = {
   "koupání": "#2196f3", "turistika": "#4caf50", "jídlo": "#ff9800",
   "kultura": "#9c27b0", "příroda": "#009688", "sport": "#f44336",
-  "zábava": "#e91e63", "jiné": "#607d8b"
+  "zábava": "#e91e63", "hotel": "#795548", "jiné": "#607d8b"
 };
 function colorFor(cat){ return COLORS[cat] || COLORS["jiné"]; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }

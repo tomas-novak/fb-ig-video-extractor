@@ -37,7 +37,8 @@ Pravidla pro určení místa (DŮLEŽITÉ – v tomto pořadí priority):
 3. NIKDY si název místa nevymýšlej. Když místo není ani v popisku, ani v přepisu, dej do location_name "Neznámé místo" a lat/lng 0.
 
 Další pravidla:
-- category: jedna z: koupání, turistika, jídlo, kultura, příroda, sport, zábava, jiné
+- category: jedna z: koupání, turistika, jídlo, kultura, příroda, sport, zábava, hotel, jiné
+  (hotel = video je primárně o ubytování / hotelu / penzionu / kempu)
 - lat/lng: odhadni co nejpřesnější souřadnice podle konkrétního názvu místa a adresy
 - tags: max 4 tagy oddělené čárkou, bez mezer kolem čárek
 - transcript: do tohoto pole dej POUZE mluvené slovo z audia, ne popisek"""
