@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
-from extractor import download_audio, ffmpeg_diagnostics, list_formats, probe_download
+from extractor import download_media, ffmpeg_diagnostics, list_formats, probe_download
 from analyzer import analyze
 from sheets import append_row, read_rows
 from map_page import MAP_HTML
@@ -94,13 +94,13 @@ async def webhook(request: Request):
 
 
 async def process_video(chat_id: int, url: str) -> None:
-    audio_path = None
+    media_path = None
     try:
-        # Stáhnutí audia
-        audio_path, yt_info = await asyncio.to_thread(download_audio, url)
+        # Stažení videa
+        media_path, yt_info = await asyncio.to_thread(download_media, url)
 
         # Analýza přes Gemini
-        metadata = await asyncio.to_thread(analyze, audio_path, url, yt_info)
+        metadata = await asyncio.to_thread(analyze, media_path, url, yt_info)
 
         # Uložení do Sheets
         await asyncio.to_thread(append_row, metadata)
@@ -117,10 +117,10 @@ async def process_video(chat_id: int, url: str) -> None:
     except Exception as e:
         await send_message(chat_id, friendly_error(str(e)))
     finally:
-        if audio_path and os.path.exists(audio_path):
-            os.remove(audio_path)
+        if media_path and os.path.exists(media_path):
             try:
-                os.rmdir(os.path.dirname(audio_path))
+                os.remove(media_path)
+                os.rmdir(os.path.dirname(media_path))
             except OSError:
                 pass
 
@@ -153,6 +153,27 @@ async def probe(url: str, secret: str = ""):
         return await asyncio.to_thread(probe_download, url)
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.get("/testfull")
+async def test_full(url: str, secret: str = ""):
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="bad secret")
+    media_path = None
+    try:
+        media_path, info = await asyncio.to_thread(download_media, url)
+        m = await asyncio.to_thread(analyze, media_path, url, info)
+        return {"location_name": m.location_name, "category": m.category,
+                "tags": m.tags, "transcript": m.transcript[:300]}
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+    finally:
+        if media_path and os.path.exists(media_path):
+            try:
+                os.remove(media_path)
+                os.rmdir(os.path.dirname(media_path))
+            except OSError:
+                pass
 
 
 @app.get("/data")

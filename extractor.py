@@ -73,28 +73,22 @@ def _resolve_cookies() -> str | None:
     return None
 
 
-def download_audio(url: str) -> tuple[str, dict]:
-    """Download audio from Facebook/Instagram URL. Returns (audio_path, info_dict)."""
+def download_media(url: str) -> tuple[str, dict]:
+    """Stáhne video z FB/IG. Vrací (cesta_k_videu, info_dict).
+    Stahujeme rovnou video (ne audio) – Gemini z něj přepíše zvuk i přečte text na obrazovce,
+    a hlavně nezávisíme na audio-only streamu, který FB datacentru nenabízí."""
     tmp_dir = tempfile.mkdtemp()
     output_template = os.path.join(tmp_dir, "%(id)s.%(ext)s")
 
     ydl_opts = {
-        # bestaudio = efektivní audio-only když je k dispozici (lokálně / residential IP).
-        # hd/sd = progresivní FB formáty se zvukem (datacentru FB audio-only stream nenabídne).
-        # best = poslední záchrana.
-        "format": "bestaudio/hd/sd/best",
+        # Progresivní FB formáty (hd/sd) jsou rozumně velké mp4; best jako záchrana (a pro IG).
+        "format": "hd/sd/best",
         "outtmpl": output_template,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "64",
-        }],
         "quiet": True,
         "no_warnings": True,
     }
 
-    # Cookies jsou workaround jen pro Instagram. U Facebooku (funguje anonymně) je
-    # neposíláme – cizí/stale cookies tam mění nabídku formátů a rozbíjejí stažení zvuku.
+    # Cookies jsou workaround jen pro Instagram (FB funguje anonymně).
     if "instagram.com" in url:
         cookies = _resolve_cookies()
         if cookies:
@@ -107,9 +101,12 @@ def download_audio(url: str) -> tuple[str, dict]:
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            video_id = info.get("id", "video")
-            audio_path = os.path.join(tmp_dir, f"{video_id}.mp3")
-        return audio_path, info
+            media_path = ydl.prepare_filename(info)
+        if not os.path.exists(media_path):
+            files = os.listdir(tmp_dir)
+            if files:
+                media_path = os.path.join(tmp_dir, files[0])
+        return media_path, info
     except BaseException:
         # Při selhání uklidíme dočasný adresář, jinak by se na serveru hromadil.
         shutil.rmtree(tmp_dir, ignore_errors=True)
