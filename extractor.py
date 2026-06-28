@@ -79,7 +79,10 @@ def download_audio(url: str) -> tuple[str, dict]:
     output_template = os.path.join(tmp_dir, "%(id)s.%(ext)s")
 
     ydl_opts = {
-        "format": "bestaudio/best",
+        # bestaudio = efektivní audio-only když je k dispozici (lokálně / residential IP).
+        # hd/sd = progresivní FB formáty se zvukem (datacentru FB audio-only stream nenabídne).
+        # best = poslední záchrana.
+        "format": "bestaudio/hd/sd/best",
         "outtmpl": output_template,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
