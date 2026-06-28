@@ -41,6 +41,21 @@ def is_valid_url(text: str) -> bool:
     return text.startswith("http://") or text.startswith("https://")
 
 
+def friendly_error(err: str) -> str:
+    """Přeloží technickou chybu na srozumitelnou hlášku pro uživatele."""
+    low = err.lower()
+    if "no video formats" in low or "no video" in low:
+        return ("📷 Tohle vypadá jako fotka nebo série fotek (carousel), ne video. "
+                "Pošli mi prosím odkaz na video nebo reel.")
+    if "empty media response" in low or "login required" in low or "rate-limit" in low \
+            or "unable to extract" in low or "checkpoint" in low or "challenge" in low:
+        return ("🔒 Nepodařilo se dostat k obsahu (Instagram nejspíš vyžaduje přihlášení "
+                "nebo vypršely cookies). U Facebook odkazů to funguje vždy.")
+    if "unsupported url" in low or "unsupported" in low:
+        return "🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram videa/reels."
+    return f"❌ Něco se nepovedlo: {err[:200]}"
+
+
 @app.post("/webhook")
 async def webhook(request: Request):
     # Volitelné ověření secret tokenu
@@ -92,7 +107,7 @@ async def process_video(chat_id: int, url: str) -> None:
         await send_message(chat_id, reply)
 
     except Exception as e:
-        await send_message(chat_id, f"❌ Chyba při zpracování: {type(e).__name__}: {e}")
+        await send_message(chat_id, friendly_error(str(e)))
     finally:
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
