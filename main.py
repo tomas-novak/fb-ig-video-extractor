@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
-from extractor import download_audio, ffmpeg_diagnostics
+from extractor import download_audio, ffmpeg_diagnostics, list_formats
 from analyzer import analyze
 from sheets import append_row, read_rows
 from map_page import MAP_HTML
@@ -133,6 +133,16 @@ async def health():
 @app.get("/debug")
 async def debug():
     return ffmpeg_diagnostics()
+
+
+@app.get("/formats")
+async def formats(url: str, secret: str = ""):
+    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="bad secret")
+    try:
+        return await asyncio.to_thread(list_formats, url)
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @app.get("/data")

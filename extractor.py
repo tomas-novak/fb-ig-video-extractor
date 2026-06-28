@@ -113,6 +113,27 @@ def download_audio(url: str) -> tuple[str, dict]:
         raise
 
 
+def list_formats(url: str) -> dict:
+    """Diagnostika: vrátí seznam formátů tak, jak je vidí tento server (bez stahování)."""
+    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    if "instagram.com" in url:
+        cookies = _resolve_cookies()
+        if cookies:
+            ydl_opts["cookiefile"] = cookies
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    fmts = info.get("formats") or []
+    return {
+        "count": len(fmts),
+        "with_audio": sum(1 for f in fmts if f.get("acodec") not in (None, "none")),
+        "formats": [
+            {"id": f.get("format_id"), "ext": f.get("ext"),
+             "acodec": f.get("acodec"), "vcodec": (f.get("vcodec") or "")[:14]}
+            for f in fmts
+        ],
+    }
+
+
 def extract_source(url: str) -> str:
     if "instagram.com" in url:
         return "instagram"
