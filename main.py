@@ -142,6 +142,7 @@ async def test_download(url: str, secret: str = "", full: int = 0):
             "size_bytes": os.path.getsize(audio_path),
             "title": (info.get("title") or "")[:120],
             "uploader": info.get("uploader") or info.get("channel"),
+            "description": (info.get("description") or "")[:800],
         }
         if full:
             metadata = await asyncio.to_thread(analyze, audio_path, url, info)
@@ -149,6 +150,7 @@ async def test_download(url: str, secret: str = "", full: int = 0):
             result["location_name"] = metadata.location_name
             result["category"] = metadata.category
             result["tags"] = metadata.tags
+            result["transcript"] = metadata.transcript[:800]
         return result
     except Exception as e:
         return JSONResponse({
