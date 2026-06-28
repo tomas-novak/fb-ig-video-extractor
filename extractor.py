@@ -137,6 +137,40 @@ def list_formats(url: str) -> dict:
     }
 
 
+def probe_download(url: str) -> dict:
+    """Diagnostika: stáhne soubor (bez konverze) a ffprobe vypíše, jaké stopy obsahuje."""
+    import subprocess
+    import json as _json
+    tmp_dir = tempfile.mkdtemp()
+    out = os.path.join(tmp_dir, "%(id)s.%(ext)s")
+    ydl_opts = {"format": "bestaudio/hd/sd/best", "outtmpl": out,
+                "quiet": True, "no_warnings": True}
+    ffmpeg = _find_ffmpeg()
+    if ffmpeg:
+        ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg)
+    if "instagram.com" in url:
+        c = _resolve_cookies()
+        if c:
+            ydl_opts["cookiefile"] = c
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+        files = os.listdir(tmp_dir)
+        path = os.path.join(tmp_dir, files[0]) if files else None
+        ffprobe = shutil.which("ffprobe")
+        if not ffprobe and ffmpeg:
+            ffprobe = os.path.join(os.path.dirname(ffmpeg), "ffprobe")
+        streams = []
+        if path and ffprobe:
+            r = subprocess.run([ffprobe, "-v", "quiet", "-print_format", "json",
+                                "-show_streams", path], capture_output=True, text=True)
+            for s in _json.loads(r.stdout or "{}").get("streams", []):
+                streams.append(f"{s.get('codec_type')}:{s.get('codec_name')}")
+        return {"format_id": info.get("format_id"), "files": files, "streams": streams}
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def extract_source(url: str) -> str:
     if "instagram.com" in url:
         return "instagram"
