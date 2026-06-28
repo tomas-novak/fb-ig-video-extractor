@@ -98,12 +98,16 @@ def download_audio(url: str) -> tuple[str, dict]:
     if ffmpeg:
         ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg)
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        video_id = info.get("id", "video")
-        audio_path = os.path.join(tmp_dir, f"{video_id}.mp3")
-
-    return audio_path, info
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            video_id = info.get("id", "video")
+            audio_path = os.path.join(tmp_dir, f"{video_id}.mp3")
+        return audio_path, info
+    except BaseException:
+        # Při selhání uklidíme dočasný adresář, jinak by se na serveru hromadil.
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
 
 def extract_source(url: str) -> str:

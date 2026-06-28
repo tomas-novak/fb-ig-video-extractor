@@ -7,6 +7,14 @@ from models import VideoMetadata
 _model = None
 
 
+def _safe_float(v) -> float:
+    """Bezpečný převod na float – Gemini může vrátit null, prázdno nebo text."""
+    try:
+        return float(str(v).replace(",", "."))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _get_model():
     """Lazy init – Gemini se konfiguruje až při prvním použití, ne při importu."""
     global _model
@@ -74,7 +82,11 @@ Místo urči především z popisku výše (často za 📍), audio použij jen d
         ),
     )
 
-    raw = response.text.strip()
+    try:
+        raw = response.text.strip()
+    except (ValueError, AttributeError) as e:
+        # Gemini nevrátil textovou část (bezpečnostní blok, prázdná odpověď, MAX_TOKENS bez textu)
+        raise RuntimeError(f"Gemini nevrátil žádný text k analýze ({e})")
     # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
     if raw.startswith("```"):
         raw = raw.split("```")[1]
@@ -89,8 +101,8 @@ Místo urči především z popisku výše (často za 📍), audio použij jen d
         author=author,
         title=title,
         location_name=data.get("location_name", ""),
-        lat=float(data.get("lat", 0)),
-        lng=float(data.get("lng", 0)),
+        lat=_safe_float(data.get("lat")),
+        lng=_safe_float(data.get("lng")),
         category=data.get("category", "jiné"),
         tags=data.get("tags", ""),
         summary=data.get("summary", ""),

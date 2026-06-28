@@ -1,7 +1,6 @@
 import asyncio
 import os
 import sys
-import tempfile
 import httpx
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -10,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
-from extractor import download_audio, extract_source, ffmpeg_diagnostics
+from extractor import download_audio, ffmpeg_diagnostics
 from analyzer import analyze
 from sheets import append_row, read_rows
 from map_page import MAP_HTML
@@ -26,6 +25,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Drží silné reference na běžící background tasky, aby je GC nesebral uprostřed běhu.
+_background_tasks: set = set()
 
 
 async def send_message(chat_id: int, text: str) -> None:
@@ -79,8 +81,11 @@ async def webhook(request: Request):
 
     await send_message(chat_id, "⏳ Zpracovávám video, chvíli počkej...")
 
-    # Zpracování v background tasku aby webhook rychle odpověděl
-    asyncio.create_task(process_video(chat_id, text))
+    # Zpracování v background tasku aby webhook rychle odpověděl.
+    # Referenci držíme v _background_tasks, jinak ji může GC sebrat uprostřed běhu.
+    task = asyncio.create_task(process_video(chat_id, text))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return {"ok": True}
 
@@ -125,47 +130,6 @@ async def health():
 @app.get("/debug")
 async def debug():
     return ffmpeg_diagnostics()
-
-
-@app.get("/testdownload")
-async def test_download(url: str, secret: str = "", full: int = 0):
-    """Diagnostika: zkusí stáhnout (a volitelně analyzovat) přímo na serveru."""
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=403, detail="bad secret")
-    import traceback
-    audio_path = None
-    try:
-        audio_path, info = await asyncio.to_thread(download_audio, url)
-        result = {
-            "ok": True,
-            "step": "download",
-            "size_bytes": os.path.getsize(audio_path),
-            "title": (info.get("title") or "")[:120],
-            "uploader": info.get("uploader") or info.get("channel"),
-            "description": (info.get("description") or "")[:800],
-        }
-        if full:
-            metadata = await asyncio.to_thread(analyze, audio_path, url, info)
-            result["step"] = "analyze"
-            result["location_name"] = metadata.location_name
-            result["category"] = metadata.category
-            result["tags"] = metadata.tags
-            result["transcript"] = metadata.transcript[:800]
-        return result
-    except Exception as e:
-        return JSONResponse({
-            "ok": False,
-            "error_type": type(e).__name__,
-            "error": str(e)[:1500],
-            "traceback": traceback.format_exc()[-1500:],
-        }, status_code=500)
-    finally:
-        if audio_path and os.path.exists(audio_path):
-            try:
-                os.remove(audio_path)
-                os.rmdir(os.path.dirname(audio_path))
-            except OSError:
-                pass
 
 
 @app.get("/data")
