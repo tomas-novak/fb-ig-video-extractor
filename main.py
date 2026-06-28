@@ -55,6 +55,9 @@ def friendly_error(err: str) -> str:
                 "nebo vypršely cookies). U Facebook odkazů to funguje vždy.")
     if "unsupported url" in low or "unsupported" in low:
         return "🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram videa/reels."
+    if "audio codec" in low or "ffprobe" in low or "requested format" in low:
+        return ("🔇 Z videa se nepodařilo získat zvukovou stopu (možná nemá zvuk). "
+                "Zkus prosím jiné video.")
     return f"❌ Něco se nepovedlo: {err[:200]}"
 
 

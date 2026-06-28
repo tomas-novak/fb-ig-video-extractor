@@ -90,9 +90,12 @@ def download_audio(url: str) -> tuple[str, dict]:
         "no_warnings": True,
     }
 
-    cookies = _resolve_cookies()
-    if cookies:
-        ydl_opts["cookiefile"] = cookies
+    # Cookies jsou workaround jen pro Instagram. U Facebooku (funguje anonymně) je
+    # neposíláme – cizí/stale cookies tam mění nabídku formátů a rozbíjejí stažení zvuku.
+    if "instagram.com" in url:
+        cookies = _resolve_cookies()
+        if cookies:
+            ydl_opts["cookiefile"] = cookies
 
     ffmpeg = _find_ffmpeg()
     if ffmpeg:
