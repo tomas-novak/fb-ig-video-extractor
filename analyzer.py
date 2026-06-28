@@ -18,7 +18,7 @@ def _get_model():
         _model = genai.GenerativeModel("gemini-2.5-flash")
     return _model
 
-SYSTEM_PROMPT = """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš přepis mluveného slova z videa a URL.
+SYSTEM_PROMPT = """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš přepis mluveného slova z videa, jeho popisek (caption) a URL.
 
 Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném formátu:
 {
@@ -31,26 +31,38 @@ Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném 
   "summary": "2-3 věty popisující místo a proč je zajímavé."
 }
 
-Pravidla:
+Pravidla pro určení místa (DŮLEŽITÉ – v tomto pořadí priority):
+1. NEJDŘÍV hledej konkrétní název místa/adresu v POPISKU (caption) – tvůrci tam místo často uvádějí, typicky za špendlíkem 📍, slovy "kde:", "místo:", nebo v hashtazích. Tohle je nejspolehlivější zdroj.
+2. Pak až mluvené slovo v přepisu.
+3. NIKDY si název místa nevymýšlej. Když místo není ani v popisku, ani v přepisu, dej do location_name "Neznámé místo" a lat/lng 0.
+
+Další pravidla:
 - category: jedna z: koupání, turistika, jídlo, kultura, příroda, sport, zábava, jiné
-- lat/lng: odhadni souřadnice podle názvu místa (česká republika nebo okolí)
+- lat/lng: odhadni co nejpřesnější souřadnice podle konkrétního názvu místa a adresy
 - tags: max 4 tagy oddělené čárkou, bez mezer kolem čárek
-- Pokud místo není jasné z přepisu, dedukuj z kontextu"""
+- transcript: do tohoto pole dej POUZE mluvené slovo z audia, ne popisek"""
 
 
 def analyze(audio_path: str, url: str, yt_info: dict) -> VideoMetadata:
     """Send audio to Gemini, get transcript + metadata in one call."""
     model = _get_model()
     author = yt_info.get("uploader") or yt_info.get("channel") or ""
-    title = yt_info.get("title") or yt_info.get("description", "")[:100] or ""
+    title = yt_info.get("title") or ""
+    description = yt_info.get("description") or ""
 
     audio_file = genai.upload_file(audio_path, mime_type="audio/mp3")
 
     prompt = f"""URL videa: {url}
 Autor: {author}
-Titulek/popis: {title}
+Titulek: {title}
 
-Přepiš prosím mluvený projev z tohoto audia a extrahuj metadata o místě."""
+POPISEK VIDEA (caption – hlavní zdroj pro určení místa):
+\"\"\"
+{description[:2000]}
+\"\"\"
+
+Přepiš mluvený projev z přiloženého audia a extrahuj metadata o místě.
+Místo urči především z popisku výše (často za 📍), audio použij jen doplňkově."""
 
     response = model.generate_content(
         [audio_file, SYSTEM_PROMPT + "\n\n" + prompt],
