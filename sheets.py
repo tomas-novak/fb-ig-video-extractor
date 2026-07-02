@@ -117,6 +117,13 @@ def set_group_ids(row_to_group: dict[int, str]) -> None:
         sheet.update_cells(cells, value_input_option="USER_ENTERED")
 
 
+def delete_place_rows(rows: list[int]) -> None:
+    """Smaže dané řádky z tabulky. Maže od nejvyššího čísla, aby se zbylé neposunuly."""
+    sheet = _get_sheet()
+    for r in sorted(set(rows), reverse=True):
+        sheet.delete_rows(r)
+
+
 def set_visited(rows: list[int], visited: bool) -> None:
     """Označí řádky jako (ne)navštívené – sloupec O."""
     sheet = _get_sheet()

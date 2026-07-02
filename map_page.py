@@ -56,6 +56,13 @@ MAP_HTML = r"""<!DOCTYPE html>
   }
   .visit-btn.undo { border-color: #999; color: #555; }
   .visit-btn:disabled { opacity: .5; }
+  .del-btn {
+    display: block; width: 100%; margin-top: 6px; padding: 6px 10px;
+    border: 1px solid #e57373; border-radius: 8px; background: #fff; color: #c62828;
+    font-size: 13px; cursor: pointer;
+  }
+  .del-btn.armed { background: #c62828; border-color: #c62828; color: #fff; font-weight: 600; }
+  .del-btn:disabled { opacity: .5; }
   #status { font-size: 13px; color: #999; padding: 0 12px 10px; }
 </style>
 </head>
@@ -154,8 +161,44 @@ function buildPopup(key){
   } else {
     html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">✅ Už jsme navštívili</button>';
   }
+  html += '<button class="del-btn" onclick="deletePlace(\''+key+'\', this)">🗑️ Smazat místo</button>';
   return html;
 }
+
+// Dvoufázové mazání: 1. klik odjistí (červené potvrzení), 2. klik smaže.
+// Bez potvrzení do 5 s se tlačítko zase zajistí.
+window.deletePlace = function(key, btn){
+  const item = items[key];
+  if(!item) return;
+  if(!btn.dataset.armed){
+    btn.dataset.armed = "1";
+    btn.classList.add("armed");
+    btn.textContent = "‼️ Opravdu úplně smazat? Klikni znovu";
+    setTimeout(() => {
+      if(btn.dataset.armed){
+        delete btn.dataset.armed;
+        btn.classList.remove("armed");
+        btn.textContent = "🗑️ Smazat místo";
+      }
+    }, 5000);
+    return;
+  }
+  btn.disabled = true;
+  const rows = item.group.map(p => p.row);
+  fetch("/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({rows: rows}),
+  }).then(r => r.json()).then(res => {
+    if(res.ok){
+      // Čísla řádků se mazáním posunula → načíst mapu znovu s čerstvými daty
+      location.reload();
+    } else {
+      alert("Smazání se nepovedlo: " + (res.error || "?"));
+      btn.disabled = false;
+    }
+  }).catch(e => { alert("Chyba spojení: " + e); btn.disabled = false; });
+};
 
 window.setVisited = function(key, flag, btn){
   const item = items[key];

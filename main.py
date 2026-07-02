@@ -11,7 +11,8 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from sheets import append_row, read_rows, set_group_ids, new_group_id, find_duplicate, set_visited
+from sheets import (append_row, read_rows, set_group_ids, new_group_id,
+                    find_duplicate, set_visited, delete_place_rows)
 from dedup import find_duplicates
 from map_page import MAP_HTML
 
@@ -264,6 +265,20 @@ async def visited(request: Request):
         if not rows:
             return JSONResponse({"error": "no rows"}, status_code=400)
         await asyncio.to_thread(set_visited, rows, flag)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.post("/delete")
+async def delete_place(request: Request):
+    """Smaže místo (řádky) z tabulky – volá mapa po dvoufázovém potvrzení."""
+    try:
+        data = await request.json()
+        rows = [int(r) for r in data.get("rows", [])]
+        if not rows:
+            return JSONResponse({"error": "no rows"}, status_code=400)
+        await asyncio.to_thread(delete_place_rows, rows)
         return {"ok": True}
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
