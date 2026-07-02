@@ -59,9 +59,11 @@ WEBHOOK_SECRET=           # volitelný secret pro ověření Telegram webhooků
 
 ## Google Sheets struktura (Sheet1)
 
-| A: Datum | B: URL | C: Autor | D: Titulek | E: Místo | F: Lat | G: Lng | H: Kategorie | I: Tagy | J: Shrnutí | K: Přepis | L: Zdroj |
+| A: Datum | B: URL | C: Autor | D: Titulek | E: Místo | F: Lat | G: Lng | H: Kategorie | I: Tagy | J: Shrnutí | K: Přepis | L: Zdroj | M: group_id |
 
-Oproti původní Make.com verzi přibyl sloupec **K: Přepis** — ukládá plný text transkripce.
+**M: group_id** — místa se stejným group_id se na mapě zobrazí jako jeden pin s více videi.
+Slučování navrhuje Claude Haiku (příkaz `/zkontroluj` v Telegramu → tlačítka Sloučit/Ponechat).
+Viz `dedup.py`. Sloučení nic nemaže a je vratné (smazat group_id v tabulce).
 
 ## Podporované URL formáty
 
