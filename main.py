@@ -11,7 +11,8 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from sheets import append_row, read_rows
+from sheets import append_row, read_rows, set_group_ids, new_group_id
+from dedup import find_duplicates
 from map_page import MAP_HTML
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -30,10 +31,18 @@ app = FastAPI(lifespan=lifespan)
 _background_tasks: set = set()
 
 
-async def send_message(chat_id: int, text: str) -> None:
+async def send_message(chat_id: int, text: str, reply_markup: dict | None = None) -> None:
+    payload = {"chat_id": chat_id, "text": text}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     async with httpx.AsyncClient() as client:
-        await client.post(f"{TELEGRAM_API}/sendMessage", json={
-            "chat_id": chat_id,
+        await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
+
+
+async def answer_callback(callback_id: str, text: str = "") -> None:
+    async with httpx.AsyncClient() as client:
+        await client.post(f"{TELEGRAM_API}/answerCallbackQuery", json={
+            "callback_query_id": callback_id,
             "text": text,
         })
 
@@ -71,6 +80,14 @@ async def webhook(request: Request):
 
     update = await request.json()
 
+    # Odpověď na tlačítka Sloučit/Ponechat u návrhů duplikátů
+    callback = update.get("callback_query")
+    if callback:
+        task = asyncio.create_task(handle_callback(callback))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return {"ok": True}
+
     message = update.get("message") or update.get("channel_post")
     if not message:
         return {"ok": True}
@@ -78,8 +95,17 @@ async def webhook(request: Request):
     chat_id = message["chat"]["id"]
     text = (message.get("text") or "").strip()
 
+    # Příkaz: kontrola duplicitních míst
+    if text.lower().startswith("/zkontroluj"):
+        await send_message(chat_id, "🔍 Kontroluji duplicitní místa, chvíli počkej...")
+        task = asyncio.create_task(run_dedup_check(chat_id))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return {"ok": True}
+
     if not is_valid_url(text):
-        await send_message(chat_id, "Pošli mi URL Facebook nebo Instagram Reels videa.")
+        await send_message(chat_id, "Pošli mi URL Facebook nebo Instagram Reels videa.\n"
+                                    "Nebo napiš /zkontroluj pro kontrolu duplicitních míst.")
         return {"ok": True}
 
     await send_message(chat_id, "⏳ Zpracovávám video, chvíli počkej...")
@@ -123,6 +149,73 @@ async def process_video(chat_id: int, url: str) -> None:
                 os.rmdir(os.path.dirname(media_path))
             except OSError:
                 pass
+
+
+async def run_dedup_check(chat_id: int) -> None:
+    """Najde podezřelé duplikáty (Claude) a pošle návrhy s tlačítky Sloučit/Ponechat."""
+    try:
+        places = await asyncio.to_thread(read_rows)
+        suggestions = await asyncio.to_thread(find_duplicates, places)
+
+        if not suggestions:
+            await send_message(chat_id, "✅ Žádné duplicitní místo jsem nenašel.")
+            return
+
+        for s in suggestions:
+            a, b = s["a"], s["b"]
+            text = (
+                f"🤔 Vypadá to na stejné místo:\n\n"
+                f"1️⃣ {a['location_name']} ({a['date']})\n"
+                f"2️⃣ {b['location_name']} ({b['date']})\n\n"
+                f"📏 Vzdálenost: {s['distance_km']:.1f} km\n"
+                f"💡 {s['reason']}"
+            )
+            keyboard = {"inline_keyboard": [[
+                {"text": "🔗 Sloučit", "callback_data": f"merge:{a['row']}:{b['row']}"},
+                {"text": "✋ Ponechat zvlášť", "callback_data": "keep"},
+            ]]}
+            await send_message(chat_id, text, reply_markup=keyboard)
+
+        await send_message(chat_id, f"Hotovo – {len(suggestions)} návrh(ů) výše. Rozhodni tlačítky.")
+    except Exception as e:
+        await send_message(chat_id, f"❌ Kontrola selhala: {type(e).__name__}: {e}")
+
+
+async def handle_callback(callback: dict) -> None:
+    """Zpracuje kliknutí na tlačítko Sloučit/Ponechat."""
+    callback_id = callback["id"]
+    chat_id = callback["message"]["chat"]["id"]
+    data = callback.get("data") or ""
+
+    try:
+        if data == "keep":
+            await answer_callback(callback_id, "Ponecháno zvlášť")
+            await send_message(chat_id, "✋ OK, nechávám jako dvě různá místa.")
+            return
+
+        if data.startswith("merge:"):
+            _, row_a, row_b = data.split(":")
+            row_a, row_b = int(row_a), int(row_b)
+
+            # Sloučení = oběma řádkům stejné group_id (zachová existující skupinu, jinak nová)
+            places = await asyncio.to_thread(read_rows)
+            by_row = {p["row"]: p for p in places}
+            a, b = by_row.get(row_a), by_row.get(row_b)
+            if not a or not b:
+                await answer_callback(callback_id, "Řádek už neexistuje")
+                await send_message(chat_id, "⚠️ Některý z řádků už v tabulce není (možná smazán). Spusť /zkontroluj znovu.")
+                return
+
+            group = a["group_id"] or b["group_id"] or new_group_id()
+            await asyncio.to_thread(set_group_ids, {row_a: group, row_b: group})
+            await answer_callback(callback_id, "Sloučeno")
+            await send_message(chat_id, f"🔗 Sloučeno: „{a['location_name']}“ + „{b['location_name']}“ se teď na mapě zobrazí jako jedno místo.")
+            return
+
+        await answer_callback(callback_id)
+    except Exception as e:
+        await answer_callback(callback_id, "Chyba")
+        await send_message(chat_id, f"❌ Sloučení selhalo: {type(e).__name__}: {e}")
 
 
 @app.get("/health")

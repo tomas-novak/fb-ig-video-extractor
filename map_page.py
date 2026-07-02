@@ -152,23 +152,41 @@ function buildTagFilters(){
 fetch("/data").then(r => r.json()).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
   const bounds = [];
+
+  // Seskupení podle group_id (sloučená místa = jeden pin s více videi)
+  const groups = {};
   places.forEach(p => {
-    const cat = p.category || "jiné";
-    const tags = parseTags(p.tags);
+    const key = p.group_id || ("solo-" + p.row);
+    (groups[key] = groups[key] || []).push(p);
+  });
+
+  Object.values(groups).forEach(group => {
+    const rep = group[0];  // reprezentant skupiny (první záznam)
+    const cat = rep.category || "jiné";
+    // tagy = sjednocení tagů všech videí ve skupině
+    const tagSet = new Set();
+    group.forEach(p => parseTags(p.tags).forEach(t => tagSet.add(t)));
+    const tags = [...tagSet];
     activeCat[cat] = true;
     tags.forEach(t => activeTag[t] = true);
-    const m = L.circleMarker([p.lat, p.lng], {
+
+    const m = L.circleMarker([rep.lat, rep.lng], {
       radius: 9, color: "#fff", weight: 2, fillColor: colorFor(cat), fillOpacity: 0.9
     });
-    let html = '<div class="popup-title">'+esc(p.location_name)+'</div>';
+    let html = '<div class="popup-title">'+esc(rep.location_name)+'</div>';
     html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
-    if(p.tags) html += '<div class="popup-tags">🏷️ '+esc(p.tags)+'</div>';
-    if(p.summary) html += '<div class="popup-summary">'+esc(p.summary)+'</div>';
-    if(p.url) html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">Otevřít video</a></div>';
+    if(tags.length) html += '<div class="popup-tags">🏷️ '+esc(tags.join(", "))+'</div>';
+    if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
+    group.forEach((p, i) => {
+      if(p.url){
+        const label = group.length > 1 ? ("Video " + (i+1) + " (" + esc(p.date||"") + ")") : "Otevřít video";
+        html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
+      }
+    });
     m.bindPopup(html);
     m.addTo(map);
     markers.push({ marker: m, category: cat, tags: tags });
-    bounds.push([p.lat, p.lng]);
+    bounds.push([rep.lat, rep.lng]);
   });
   buildCatFilters();
   buildTagFilters();
