@@ -9,8 +9,11 @@ _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _client = None
 
 # Sloupce: A datum, B url, C autor, D titulek, E místo, F lat, G lng,
-#          H kategorie, I tagy, J shrnutí, K přepis, L zdroj, M group_id
-NUM_COLS = 13
+#          H kategorie, I tagy, J shrnutí, K přepis, L zdroj, M group_id, N video_id
+NUM_COLS = 14
+URL_COL = 2
+GROUP_COL = 13
+VIDEO_ID_COL = 14
 
 
 def _get_client() -> gspread.Client:
@@ -68,6 +71,7 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "summary": row[9],
         "source": row[11],
         "group_id": (row[12] or "").strip(),
+        "video_id": (row[13] or "").strip(),
     }
 
 
@@ -82,9 +86,29 @@ def read_rows() -> list[dict]:
     return places
 
 
+def normalize_url(url: str) -> str:
+    """Normalizace URL pro porovnání duplicit (bez query stringu, fragmentu a lomítka na konci)."""
+    return url.strip().split("?")[0].split("#")[0].rstrip("/")
+
+
+def find_duplicate(url: str = "", video_id: str = "") -> dict | None:
+    """Najde existující záznam se stejnou URL (normalizovanou) nebo stejným video_id.
+    Vrací {location_name, date, row} nebo None."""
+    values = _get_sheet().get_all_values()
+    norm = normalize_url(url) if url else ""
+    for i, row in enumerate(values, start=1):
+        if len(row) < NUM_COLS:
+            row = row + [""] * (NUM_COLS - len(row))
+        if norm and normalize_url(row[1]) == norm:
+            return {"location_name": row[4], "date": row[0], "row": i}
+        if video_id and (row[13] or "").strip() == video_id:
+            return {"location_name": row[4], "date": row[0], "row": i}
+    return None
+
+
 def set_group_ids(row_to_group: dict[int, str]) -> None:
     """Nastaví group_id (sloupec M) daným řádkům. {číslo_řádku: group_id}"""
     sheet = _get_sheet()
-    cells = [gspread.Cell(row=r, col=NUM_COLS, value=g) for r, g in row_to_group.items()]
+    cells = [gspread.Cell(row=r, col=GROUP_COL, value=g) for r, g in row_to_group.items()]
     if cells:
         sheet.update_cells(cells, value_input_option="USER_ENTERED")

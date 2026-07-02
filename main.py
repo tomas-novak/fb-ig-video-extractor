@@ -11,7 +11,7 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from sheets import append_row, read_rows, set_group_ids, new_group_id
+from sheets import append_row, read_rows, set_group_ids, new_group_id, find_duplicate
 from dedup import find_duplicates
 from map_page import MAP_HTML
 
@@ -108,8 +108,6 @@ async def webhook(request: Request):
                                     "Nebo napiš /zkontroluj pro kontrolu duplicitních míst.")
         return {"ok": True}
 
-    await send_message(chat_id, "⏳ Zpracovávám video, chvíli počkej...")
-
     # Zpracování v background tasku aby webhook rychle odpověděl.
     # Referenci držíme v _background_tasks, jinak ji může GC sebrat uprostřed běhu.
     task = asyncio.create_task(process_video(chat_id, text))
@@ -122,13 +120,32 @@ async def webhook(request: Request):
 async def process_video(chat_id: int, url: str) -> None:
     media_path = None
     try:
-        # Stažení videa
+        # 1) Rychlá kontrola duplicity podle URL (před stahováním, zdarma)
+        dup = await asyncio.to_thread(find_duplicate, url)
+        if dup:
+            await send_message(chat_id, f"⚠️ Tohle video už máš uložené:\n"
+                                        f"📍 {dup['location_name']} ({dup['date']})")
+            return
+
+        await send_message(chat_id, "⏳ Zpracovávám video, chvíli počkej...")
+
+        # 2) Stažení videa
         media_path, yt_info = await asyncio.to_thread(download_media, url)
 
-        # Analýza přes Gemini
-        metadata = await asyncio.to_thread(analyze, media_path, url, yt_info)
+        # 3) Kontrola duplicity podle ID videa (chytí i jiný tvar odkazu na totéž video)
+        video_id = str(yt_info.get("id") or "")
+        if video_id:
+            dup = await asyncio.to_thread(find_duplicate, "", video_id)
+            if dup:
+                await send_message(chat_id, f"⚠️ Tohle video už máš uložené (pod jiným odkazem):\n"
+                                            f"📍 {dup['location_name']} ({dup['date']})")
+                return
 
-        # Uložení do Sheets
+        # 4) Analýza přes Gemini
+        metadata = await asyncio.to_thread(analyze, media_path, url, yt_info)
+        metadata.video_id = video_id
+
+        # 5) Uložení do Sheets
         await asyncio.to_thread(append_row, metadata)
 
         # Odpověď uživateli

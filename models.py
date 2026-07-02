@@ -16,6 +16,7 @@ class VideoMetadata:
     transcript: str = ""
     source: str = ""
     group_id: str = ""
+    video_id: str = ""
     created_at: datetime = field(default_factory=datetime.now)
 
     def to_sheets_row(self) -> list:
@@ -33,4 +34,5 @@ class VideoMetadata:
             self.transcript,
             self.source,
             self.group_id,
+            self.video_id,
         ]
