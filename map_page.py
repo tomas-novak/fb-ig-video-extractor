@@ -30,6 +30,10 @@ MAP_HTML = r"""<!DOCTYPE html>
   #panel-body { display: none; padding: 0 12px 12px; max-height: 60vh; overflow-y: auto; }
   #panel-body.open { display: block; }
   .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin: 8px 0 4px; }
+  .group-head { display: flex; align-items: center; justify-content: space-between; }
+  .mini { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 2px 8px;
+          font-size: 11px; cursor: pointer; margin-left: 4px; color: #333; }
+  .mini:active { background: #eee; }
   .filters { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
@@ -56,7 +60,13 @@ MAP_HTML = r"""<!DOCTYPE html>
   <div id="panel-body">
     <div class="group-label">Kategorie</div>
     <div class="filters" id="cat-filters"></div>
-    <div class="group-label">Tagy</div>
+    <div class="group-label group-head">
+      <span>Tagy</span>
+      <span>
+        <button class="mini" id="tags-all">vše</button>
+        <button class="mini" id="tags-none">nic</button>
+      </span>
+    </div>
     <div class="filters" id="tag-filters"></div>
   </div>
   <div id="status"></div>
@@ -127,7 +137,7 @@ function buildTagFilters(){
   box.innerHTML = "";
   Object.keys(activeTag).sort((a,b)=>a.localeCompare(b,'cs')).forEach(tag => {
     const chip = document.createElement("span");
-    chip.className = "chip tag on";
+    chip.className = "chip tag" + (activeTag[tag] ? " on" : " off");
     chip.textContent = "#" + tag;
     chip.onclick = () => {
       activeTag[tag] = !activeTag[tag];
@@ -163,6 +173,15 @@ fetch("/data").then(r => r.json()).then(places => {
   buildCatFilters();
   buildTagFilters();
   applyFilters();
+
+  // Tlačítka vše/nic pro tagy – snadný výběr jednoho tagu (dej "nic", pak klikni jeden)
+  function setAllTags(val){
+    Object.keys(activeTag).forEach(t => activeTag[t] = val);
+    buildTagFilters();
+    applyFilters();
+  }
+  document.getElementById("tags-all").onclick = () => setAllTags(true);
+  document.getElementById("tags-none").onclick = () => setAllTags(false);
   if(bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
 }).catch(e => {
   document.getElementById("status").textContent = "Nepodařilo se načíst data: " + e;
