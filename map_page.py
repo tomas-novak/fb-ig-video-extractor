@@ -13,12 +13,22 @@ MAP_HTML = r"""<!DOCTYPE html>
   #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
   #panel {
     position: absolute; z-index: 1000; top: 10px; left: 10px; right: 10px;
-    background: rgba(255,255,255,0.96); border-radius: 12px; padding: 10px 12px;
+    background: rgba(255,255,255,0.96); border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 560px;
-    max-height: 70vh; overflow-y: auto;
+    overflow: hidden;
   }
-  #panel h1 { font-size: 16px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
-  #panel h1 .count { font-size: 12px; font-weight: normal; color: #666; }
+  #panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 12px; cursor: pointer;
+  }
+  #panel-head .title { font-size: 15px; font-weight: 600; }
+  #panel-head .count { font-size: 12px; font-weight: normal; color: #666; }
+  #toggle {
+    border: none; background: #f0f0f0; border-radius: 8px; padding: 6px 12px;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  #panel-body { display: none; padding: 0 12px 12px; max-height: 60vh; overflow-y: auto; }
+  #panel-body.open { display: block; }
   .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin: 8px 0 4px; }
   .filters { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
@@ -34,16 +44,21 @@ MAP_HTML = r"""<!DOCTYPE html>
   .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
   .popup-summary { font-size: 13px; line-height: 1.4; margin-bottom: 8px; }
   .popup-link { font-size: 13px; }
-  #status { font-size: 13px; color: #999; }
+  #status { font-size: 13px; color: #999; padding: 0 12px 10px; }
 </style>
 </head>
 <body>
 <div id="panel">
-  <h1>🗺️ Výlety <span class="count" id="count"></span></h1>
-  <div class="group-label">Kategorie</div>
-  <div class="filters" id="cat-filters"></div>
-  <div class="group-label">Tagy</div>
-  <div class="filters" id="tag-filters"></div>
+  <div id="panel-head">
+    <span class="title">🗺️ Výlety <span class="count" id="count"></span></span>
+    <button id="toggle">☰ Filtry</button>
+  </div>
+  <div id="panel-body">
+    <div class="group-label">Kategorie</div>
+    <div class="filters" id="cat-filters"></div>
+    <div class="group-label">Tagy</div>
+    <div class="filters" id="tag-filters"></div>
+  </div>
   <div id="status"></div>
 </div>
 <div id="map"></div>
@@ -59,10 +74,21 @@ function colorFor(cat){ return COLORS[cat] || COLORS["jiné"]; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 function parseTags(s){ return (s||"").split(",").map(t => t.trim()).filter(Boolean); }
 
+// Sbalovací panel filtrů (na mobilu jinak zakrývá mapu)
+const body = document.getElementById("panel-body");
+const toggleBtn = document.getElementById("toggle");
+function setOpen(open){
+  body.classList.toggle("open", open);
+  toggleBtn.textContent = open ? "✕ Zavřít" : "☰ Filtry";
+}
+toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.classList.contains("open")); });
+
 const map = L.map("map").setView([49.8, 15.5], 7);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "© OpenStreetMap"
 }).addTo(map);
+// Klik do mapy zavře panel filtrů
+map.on("click", () => setOpen(false));
 
 const markers = [];      // {marker, category, tags[]}
 const activeCat = {};    // kategorie -> bool (default true)
@@ -70,8 +96,8 @@ const activeTag = {};    // tag -> bool (default true)
 
 function placeVisible(item){
   if(!activeCat[item.category]) return false;
-  if(item.tags.length === 0) return true;          // místa bez tagů filtr nevyřazuje
-  return item.tags.some(t => activeTag[t]);         // aspoň jeden tag zapnutý
+  if(item.tags.length === 0) return true;
+  return item.tags.some(t => activeTag[t]);
 }
 
 function applyFilters(){
