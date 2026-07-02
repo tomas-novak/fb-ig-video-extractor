@@ -9,11 +9,13 @@ _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _client = None
 
 # Sloupce: A datum, B url, C autor, D titulek, E místo, F lat, G lng,
-#          H kategorie, I tagy, J shrnutí, K přepis, L zdroj, M group_id, N video_id
-NUM_COLS = 14
+#          H kategorie, I tagy, J shrnutí, K přepis, L zdroj, M group_id,
+#          N video_id, O navštíveno
+NUM_COLS = 15
 URL_COL = 2
 GROUP_COL = 13
 VIDEO_ID_COL = 14
+VISITED_COL = 15
 
 
 def _get_client() -> gspread.Client:
@@ -72,6 +74,7 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "source": row[11],
         "group_id": (row[12] or "").strip(),
         "video_id": (row[13] or "").strip(),
+        "visited": (row[14] or "").strip().lower() in ("ano", "true", "1", "x"),
     }
 
 
@@ -110,5 +113,14 @@ def set_group_ids(row_to_group: dict[int, str]) -> None:
     """Nastaví group_id (sloupec M) daným řádkům. {číslo_řádku: group_id}"""
     sheet = _get_sheet()
     cells = [gspread.Cell(row=r, col=GROUP_COL, value=g) for r, g in row_to_group.items()]
+    if cells:
+        sheet.update_cells(cells, value_input_option="USER_ENTERED")
+
+
+def set_visited(rows: list[int], visited: bool) -> None:
+    """Označí řádky jako (ne)navštívené – sloupec O."""
+    sheet = _get_sheet()
+    value = "ano" if visited else ""
+    cells = [gspread.Cell(row=r, col=VISITED_COL, value=value) for r in rows]
     if cells:
         sheet.update_cells(cells, value_input_option="USER_ENTERED")

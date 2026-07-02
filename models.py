@@ -35,4 +35,5 @@ class VideoMetadata:
             self.source,
             self.group_id,
             self.video_id,
+            "",  # O: navštíveno (vyplňuje se tlačítkem na mapě)
         ]

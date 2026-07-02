@@ -11,7 +11,7 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from sheets import append_row, read_rows, set_group_ids, new_group_id, find_duplicate
+from sheets import append_row, read_rows, set_group_ids, new_group_id, find_duplicate, set_visited
 from dedup import find_duplicates
 from map_page import MAP_HTML
 
@@ -250,6 +250,21 @@ async def data():
     try:
         places = await asyncio.to_thread(read_rows)
         return JSONResponse(places)
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.post("/visited")
+async def visited(request: Request):
+    """Označí místa (řádky) jako navštívená/nenavštívená – volá mapa."""
+    try:
+        data = await request.json()
+        rows = [int(r) for r in data.get("rows", [])]
+        flag = bool(data.get("visited"))
+        if not rows:
+            return JSONResponse({"error": "no rows"}, status_code=400)
+        await asyncio.to_thread(set_visited, rows, flag)
+        return {"ok": True}
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
 

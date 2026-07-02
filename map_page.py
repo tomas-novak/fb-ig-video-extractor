@@ -43,11 +43,19 @@ MAP_HTML = r"""<!DOCTYPE html>
   .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
   .chip.off { opacity: .35; }
   .chip.tag.on { border-color: #333; background: #333; color: #fff; }
+  .chip.visited-toggle.on { border-color: #4caf50; background: #4caf50; color: #fff; }
   .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .popup-cat { display: inline-block; color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-bottom: 6px; }
   .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
   .popup-summary { font-size: 13px; line-height: 1.4; margin-bottom: 8px; }
   .popup-link { font-size: 13px; }
+  .visit-btn {
+    display: block; width: 100%; margin-top: 8px; padding: 6px 10px;
+    border: 1px solid #4caf50; border-radius: 8px; background: #fff; color: #2e7d32;
+    font-size: 13px; cursor: pointer;
+  }
+  .visit-btn.undo { border-color: #999; color: #555; }
+  .visit-btn:disabled { opacity: .5; }
   #status { font-size: 13px; color: #999; padding: 0 12px 10px; }
 </style>
 </head>
@@ -58,6 +66,10 @@ MAP_HTML = r"""<!DOCTYPE html>
     <button id="toggle">☰ Filtry</button>
   </div>
   <div id="panel-body">
+    <div class="group-label">Zobrazení</div>
+    <div class="filters">
+      <span class="chip visited-toggle" id="visited-toggle">✓ zobrazit navštívené</span>
+    </div>
     <div class="group-label">Kategorie</div>
     <div class="filters" id="cat-filters"></div>
     <div class="group-label group-head">
@@ -97,28 +109,75 @@ const map = L.map("map").setView([49.8, 15.5], 7);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19, attribution: "© OpenStreetMap"
 }).addTo(map);
-// Klik do mapy zavře panel filtrů
 map.on("click", () => setOpen(false));
 
-const markers = [];      // {marker, category, tags[]}
-const activeCat = {};    // kategorie -> bool (default true)
-const activeTag = {};    // tag -> bool (default true)
+const items = {};        // key -> {marker, category, tags[], visited, group[]}
+const activeCat = {};    // kategorie -> bool
+const activeTag = {};    // tag -> bool
+let showVisited = false; // navštívená místa jsou defaultně skrytá
 
 function placeVisible(item){
+  if(item.visited && !showVisited) return false;
   if(!activeCat[item.category]) return false;
   if(item.tags.length === 0) return true;
   return item.tags.some(t => activeTag[t]);
 }
 
 function applyFilters(){
-  let shown = 0;
-  markers.forEach(item => {
+  let shown = 0, total = 0;
+  Object.values(items).forEach(item => {
+    total++;
     const vis = placeVisible(item);
     if(vis){ if(!map.hasLayer(item.marker)) item.marker.addTo(map); shown++; }
     else   { if(map.hasLayer(item.marker)) map.removeLayer(item.marker); }
   });
-  document.getElementById("count").textContent = "(" + shown + " / " + markers.length + " míst)";
+  document.getElementById("count").textContent = "(" + shown + " / " + total + " míst)";
 }
+
+function buildPopup(key){
+  const item = items[key];
+  const group = item.group;
+  const rep = group[0];
+  const cat = item.category;
+  let html = '<div class="popup-title">'+esc(rep.location_name)+'</div>';
+  html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
+  if(item.tags.length) html += '<div class="popup-tags">🏷️ '+esc(item.tags.join(", "))+'</div>';
+  if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
+  group.forEach((p, i) => {
+    if(p.url){
+      const label = group.length > 1 ? ("Video " + (i+1) + " (" + esc(p.date||"") + ")") : "Otevřít video";
+      html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
+    }
+  });
+  if(item.visited){
+    html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">↩️ Vrátit mezi nenavštívené</button>';
+  } else {
+    html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">✅ Už jsme navštívili</button>';
+  }
+  return html;
+}
+
+window.setVisited = function(key, flag, btn){
+  const item = items[key];
+  if(!item) return;
+  btn.disabled = true;
+  const rows = item.group.map(p => p.row);
+  fetch("/visited", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({rows: rows, visited: flag}),
+  }).then(r => r.json()).then(res => {
+    if(res.ok){
+      item.visited = flag;
+      item.marker.setPopupContent(buildPopup(key));
+      item.marker.closePopup();
+      applyFilters();
+    } else {
+      alert("Uložení se nepovedlo: " + (res.error || "?"));
+      btn.disabled = false;
+    }
+  }).catch(e => { alert("Chyba spojení: " + e); btn.disabled = false; });
+};
 
 function buildCatFilters(){
   const box = document.getElementById("cat-filters");
@@ -149,6 +208,16 @@ function buildTagFilters(){
   });
 }
 
+// Přepínač zobrazení navštívených míst
+const visitedChip = document.getElementById("visited-toggle");
+visitedChip.classList.add("off");
+visitedChip.onclick = () => {
+  showVisited = !showVisited;
+  visitedChip.classList.toggle("on", showVisited);
+  visitedChip.classList.toggle("off", !showVisited);
+  applyFilters();
+};
+
 fetch("/data").then(r => r.json()).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
   const bounds = [];
@@ -160,39 +229,28 @@ fetch("/data").then(r => r.json()).then(places => {
     (groups[key] = groups[key] || []).push(p);
   });
 
-  Object.values(groups).forEach(group => {
-    const rep = group[0];  // reprezentant skupiny (první záznam)
+  Object.entries(groups).forEach(([key, group]) => {
+    const rep = group[0];
     const cat = rep.category || "jiné";
-    // tagy = sjednocení tagů všech videí ve skupině
     const tagSet = new Set();
     group.forEach(p => parseTags(p.tags).forEach(t => tagSet.add(t)));
     const tags = [...tagSet];
+    const visited = group.some(p => p.visited);
     activeCat[cat] = true;
     tags.forEach(t => activeTag[t] = true);
 
     const m = L.circleMarker([rep.lat, rep.lng], {
       radius: 9, color: "#fff", weight: 2, fillColor: colorFor(cat), fillOpacity: 0.9
     });
-    let html = '<div class="popup-title">'+esc(rep.location_name)+'</div>';
-    html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
-    if(tags.length) html += '<div class="popup-tags">🏷️ '+esc(tags.join(", "))+'</div>';
-    if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
-    group.forEach((p, i) => {
-      if(p.url){
-        const label = group.length > 1 ? ("Video " + (i+1) + " (" + esc(p.date||"") + ")") : "Otevřít video";
-        html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
-      }
-    });
-    m.bindPopup(html);
-    m.addTo(map);
-    markers.push({ marker: m, category: cat, tags: tags });
+    items[key] = { marker: m, category: cat, tags: tags, visited: visited, group: group };
+    m.bindPopup(buildPopup(key));
     bounds.push([rep.lat, rep.lng]);
   });
+
   buildCatFilters();
   buildTagFilters();
   applyFilters();
 
-  // Tlačítka vše/nic pro tagy – snadný výběr jednoho tagu (dej "nic", pak klikni jeden)
   function setAllTags(val){
     Object.keys(activeTag).forEach(t => activeTag[t] = val);
     buildTagFilters();
@@ -200,6 +258,7 @@ fetch("/data").then(r => r.json()).then(places => {
   }
   document.getElementById("tags-all").onclick = () => setAllTags(true);
   document.getElementById("tags-none").onclick = () => setAllTags(false);
+
   if(bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
 }).catch(e => {
   document.getElementById("status").textContent = "Nepodařilo se načíst data: " + e;
