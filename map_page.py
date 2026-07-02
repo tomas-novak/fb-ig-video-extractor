@@ -75,7 +75,7 @@ MAP_HTML = r"""<!DOCTYPE html>
   <div id="panel-body">
     <div class="group-label">Zobrazení</div>
     <div class="filters">
-      <span class="chip visited-toggle" id="visited-toggle">✓ zobrazit navštívené</span>
+      <span class="chip visited-toggle" id="visited-toggle">✓ jen navštívené</span>
     </div>
     <div class="group-label">Kategorie</div>
     <div class="filters" id="cat-filters"></div>
@@ -121,13 +121,18 @@ map.on("click", () => setOpen(false));
 const items = {};        // key -> {marker, category, tags[], visited, group[]}
 const activeCat = {};    // kategorie -> bool
 const activeTag = {};    // tag -> bool
-let showVisited = false; // navštívená místa jsou defaultně skrytá
+let visitedMode = false; // false = jen nenavštívená, true = JEN navštívená
 
 function placeVisible(item){
-  if(item.visited && !showVisited) return false;
+  if(visitedMode !== item.visited) return false;
   if(!activeCat[item.category]) return false;
   if(item.tags.length === 0) return true;
   return item.tags.some(t => activeTag[t]);
+}
+
+function markerStyle(item){
+  // navštívená místa jsou šedá, ať jsou na první pohled poznat
+  return { fillColor: item.visited ? "#9e9e9e" : colorFor(item.category) };
 }
 
 function applyFilters(){
@@ -212,6 +217,7 @@ window.setVisited = function(key, flag, btn){
   }).then(r => r.json()).then(res => {
     if(res.ok){
       item.visited = flag;
+      item.marker.setStyle(markerStyle(item));
       item.marker.setPopupContent(buildPopup(key));
       item.marker.closePopup();
       applyFilters();
@@ -255,9 +261,9 @@ function buildTagFilters(){
 const visitedChip = document.getElementById("visited-toggle");
 visitedChip.classList.add("off");
 visitedChip.onclick = () => {
-  showVisited = !showVisited;
-  visitedChip.classList.toggle("on", showVisited);
-  visitedChip.classList.toggle("off", !showVisited);
+  visitedMode = !visitedMode;
+  visitedChip.classList.toggle("on", visitedMode);
+  visitedChip.classList.toggle("off", !visitedMode);
   applyFilters();
 };
 
@@ -283,7 +289,8 @@ fetch("/data").then(r => r.json()).then(places => {
     tags.forEach(t => activeTag[t] = true);
 
     const m = L.circleMarker([rep.lat, rep.lng], {
-      radius: 9, color: "#fff", weight: 2, fillColor: colorFor(cat), fillOpacity: 0.9
+      radius: 9, color: "#fff", weight: 2,
+      fillColor: visited ? "#9e9e9e" : colorFor(cat), fillOpacity: 0.9
     });
     items[key] = { marker: m, category: cat, tags: tags, visited: visited, group: group };
     m.bindPopup(buildPopup(key));
