@@ -8,7 +8,7 @@ import math
 import os
 import anthropic
 
-MAX_DISTANCE_KM = 3.0  # souřadnice od Gemini jsou odhady, bývají i ~2,5 km od sebe
+MAX_DISTANCE_KM = 8.0  # souřadnice od Gemini jsou odhady, u stejného místa i ~5,5 km od sebe (Chvojenec)
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 _client = None
