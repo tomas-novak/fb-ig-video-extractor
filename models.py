@@ -17,6 +17,10 @@ class VideoMetadata:
     source: str = ""
     group_id: str = ""
     video_id: str = ""
+    place_id: str = ""
+    maps_url: str = ""
+    geo_source: str = ""   # "places" = přesné z Google, "gemini" = odhad AI
+    city: str = ""         # obec – jen pro geokódovací dotaz, do tabulky se neukládá
     created_at: datetime = field(default_factory=datetime.now)
 
     def to_sheets_row(self) -> list:
@@ -36,4 +40,7 @@ class VideoMetadata:
             self.group_id,
             self.video_id,
             "",  # O: navštíveno (vyplňuje se tlačítkem na mapě)
+            self.place_id,
+            self.maps_url,
+            self.geo_source,
         ]

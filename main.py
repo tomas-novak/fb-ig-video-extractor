@@ -12,7 +12,8 @@ load_dotenv()
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
-                    find_duplicate, set_visited, delete_place_rows)
+                    find_duplicate, set_visited, delete_place_rows, find_by_place_id)
+from geocoder import geocode, maps_link
 from dedup import find_duplicates
 from map_page import MAP_HTML
 
@@ -146,15 +147,41 @@ async def process_video(chat_id: int, url: str) -> None:
         metadata = await asyncio.to_thread(analyze, media_path, url, yt_info)
         metadata.video_id = video_id
 
-        # 5) Uložení do Sheets
+        # 5) Geokódování: přesné souřadnice + place_id + odkaz na Google Maps
+        geo = await asyncio.to_thread(geocode, metadata.location_name, metadata.city)
+        if geo:
+            metadata.lat = geo["lat"]
+            metadata.lng = geo["lng"]
+            metadata.place_id = geo["place_id"]
+            metadata.maps_url = geo["maps_url"]
+            metadata.geo_source = "places"
+        else:
+            metadata.maps_url = maps_link(name=metadata.location_name)
+            metadata.geo_source = "gemini"
+
+        # 6) Stejné místo (place_id) už existuje? -> rovnou do stejné skupiny
+        group_note = ""
+        if metadata.place_id:
+            match = await asyncio.to_thread(find_by_place_id, metadata.place_id)
+            if match:
+                group = match["group_id"] or new_group_id()
+                if not match["group_id"]:
+                    await asyncio.to_thread(set_group_ids, {match["row"]: group})
+                metadata.group_id = group
+                group_note = f"\n🔗 Přidáno k existujícímu místu „{match['location_name']}“."
+
+        # 7) Uložení do Sheets
         await asyncio.to_thread(append_row, metadata)
 
-        # Odpověď uživateli
+        # 8) Odpověď uživateli
+        precision = "" if metadata.geo_source == "places" else "\n⚠️ Poloha je jen odhad (místo se nepodařilo najít na Google Maps)."
         reply = (
             f"✅ Uloženo!\n"
             f"📍 {metadata.location_name}\n"
             f"🏷️ {metadata.category} | {metadata.tags}\n\n"
-            f"{metadata.summary}"
+            f"{metadata.summary}\n"
+            f"🧭 {metadata.maps_url}"
+            f"{precision}{group_note}"
         )
         await send_message(chat_id, reply)
 

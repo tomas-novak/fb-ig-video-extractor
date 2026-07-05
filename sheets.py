@@ -10,12 +10,13 @@ _client = None
 
 # Sloupce: A datum, B url, C autor, D titulek, E místo, F lat, G lng,
 #          H kategorie, I tagy, J shrnutí, K přepis, L zdroj, M group_id,
-#          N video_id, O navštíveno
-NUM_COLS = 15
+#          N video_id, O navštíveno, P place_id, Q maps_url, R geo_source
+NUM_COLS = 18
 URL_COL = 2
 GROUP_COL = 13
 VIDEO_ID_COL = 14
 VISITED_COL = 15
+PLACE_ID_COL = 16
 
 
 def _get_client() -> gspread.Client:
@@ -75,6 +76,9 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "group_id": (row[12] or "").strip(),
         "video_id": (row[13] or "").strip(),
         "visited": (row[14] or "").strip().lower() in ("ano", "true", "1", "x"),
+        "place_id": (row[15] or "").strip(),
+        "maps_url": (row[16] or "").strip(),
+        "geo_source": (row[17] or "").strip(),
     }
 
 
@@ -115,6 +119,20 @@ def set_group_ids(row_to_group: dict[int, str]) -> None:
     cells = [gspread.Cell(row=r, col=GROUP_COL, value=g) for r, g in row_to_group.items()]
     if cells:
         sheet.update_cells(cells, value_input_option="USER_ENTERED")
+
+
+def find_by_place_id(place_id: str) -> dict | None:
+    """Najde existující záznam se stejným place_id (= stejné místo podle Google).
+    Vrací {row, group_id, location_name} nebo None."""
+    if not place_id:
+        return None
+    values = _get_sheet().get_all_values()
+    for i, row in enumerate(values, start=1):
+        if len(row) < NUM_COLS:
+            row = row + [""] * (NUM_COLS - len(row))
+        if (row[15] or "").strip() == place_id:
+            return {"row": i, "group_id": (row[12] or "").strip(), "location_name": row[4]}
+    return None
 
 
 def delete_place_rows(rows: list[int]) -> None:

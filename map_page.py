@@ -161,6 +161,11 @@ function buildPopup(key){
       html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
     }
   });
+  const mapsUrl = rep.maps_url || ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rep.location_name));
+  html += '<div class="popup-link">🧭 <a href="'+esc(mapsUrl)+'" target="_blank" rel="noopener">Otevřít v Google Maps</a></div>';
+  if(rep.geo_source === "gemini"){
+    html += '<div class="popup-tags">⚠️ přibližná poloha (odhad AI)</div>';
+  }
   if(item.visited){
     html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">↩️ Vrátit mezi nenavštívené</button>';
   } else {

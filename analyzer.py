@@ -37,7 +37,8 @@ SYSTEM_PROMPT = """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš 
 Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném formátu:
 {
   "transcript": "plný přepis mluveného slova",
-  "location_name": "název konkrétního místa (město, název objektu...)",
+  "location_name": "název konkrétního místa (název objektu/atrakce)",
+  "city": "obec nebo město, kde místo leží (pokud je známé, jinak prázdné)",
   "lat": 50.1234,
   "lng": 14.5678,
   "category": "koupání",
@@ -120,6 +121,7 @@ Pokud má video zvuk, přepiš mluvený projev do pole transcript."""
         author=author,
         title=title,
         location_name=data.get("location_name", ""),
+        city=data.get("city", "") or "",
         lat=_safe_float(data.get("lat")),
         lng=_safe_float(data.get("lng")),
         category=data.get("category", "jiné"),

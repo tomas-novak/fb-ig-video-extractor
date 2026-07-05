@@ -87,10 +87,18 @@ Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění česky
 
 
 def find_duplicates(places: list[dict]) -> list[dict]:
-    """Kompletní kontrola: předfiltr + Claude verdikty.
+    """Kompletní kontrola: předfiltr + place_id shoda / Claude verdikty.
     Vrací seznam návrhů: {a, b, distance_km, reason} jen pro páry označené jako stejné."""
     suggestions = []
     for a, b, d in find_candidate_pairs(places):
+        pid_a, pid_b = a.get("place_id", ""), b.get("place_id", "")
+        if pid_a and pid_b:
+            if pid_a == pid_b:
+                # Stejné Google místo – jistá shoda, Claude není potřeba
+                suggestions.append({"a": a, "b": b, "distance_km": d,
+                                    "reason": "Stejné místo podle Google Maps (place_id)."})
+            # různá place_id = různá místa -> přeskočit (bez dotazu na Claude)
+            continue
         verdict = judge_pair(a, b, d)
         if verdict["same"]:
             suggestions.append({"a": a, "b": b, "distance_km": d, "reason": verdict["reason"]})
