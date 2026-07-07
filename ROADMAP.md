@@ -116,10 +116,12 @@ už umí — jde převážně o povolení URL formátů.
 
 Featury, které promění pasivní sbírku míst v nástroj používaný přímo na výletě.
 
-- [ ] **„Místa poblíž"** — uživatel pošle botu polohu (Telegram attachment
+- [x] **„Místa poblíž"** — uživatel pošle botu polohu (Telegram attachment
   Location) → bot vrátí uložená místa do X km, seřazená podle vzdálenosti,
   s odkazem na navigaci. Souřadnice v tabulce už jsou, výpočet vzdálenosti
   (haversine) je pár řádků. Killer feature: použiješ ji, když někde reálně jsi.
+  *(hotovo: 5 nejbližších nenavštívených míst do 50 km, sloučené skupiny
+  jednou; když v okruhu nic není, ukáže aspoň nejbližší místo)*
 - [ ] **Sdílení mapy** — read-only odkaz na `/map` pro partnera/kamarády při
   plánování. Zvážit jednoduchý token v URL, aby mapa nebyla úplně veřejná
   (skrývá i tlačítka mazání/visited pro cizí návštěvníky).

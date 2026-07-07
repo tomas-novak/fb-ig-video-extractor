@@ -4,9 +4,10 @@ Volá se na povel (/zkontroluj v Telegramu). Nic nemění automaticky –
 vrací návrhy, o sloučení rozhoduje uživatel tlačítky v Telegramu.
 """
 import json
-import math
 import os
 import anthropic
+
+from geocoder import distance_km as _distance_km
 
 MAX_DISTANCE_KM = 8.0  # souřadnice od Gemini jsou odhady, u stejného místa i ~5,5 km od sebe (Chvojenec)
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -21,16 +22,6 @@ def _get_client() -> anthropic.Anthropic:
             raise RuntimeError("Chybí proměnná prostředí ANTHROPIC_API_KEY")
         _client = anthropic.Anthropic()
     return _client
-
-
-def _distance_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Haversine – vzdálenost dvou souřadnic v km."""
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lng2 - lng1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
 
 
 def find_candidate_pairs(places: list[dict]) -> list[tuple[dict, dict, float]]:
