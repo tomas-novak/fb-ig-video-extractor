@@ -282,7 +282,9 @@ def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[flo
     for group in groups.values():
         if any(p["visited"] for p in group):
             continue
-        rep = group[0]
+        # Řádky skupiny mohou mít různé souřadnice (např. sloučení dvou odhadů) –
+        # reprezentantem je záznam nejblíž k uživateli, ne group[0]
+        rep = min(group, key=lambda p: distance_km(lat, lng, p["lat"], p["lng"]))
         result.append((distance_km(lat, lng, rep["lat"], rep["lng"]), rep))
     result.sort(key=lambda x: x[0])
     return result
