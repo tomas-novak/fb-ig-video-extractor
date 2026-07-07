@@ -22,9 +22,20 @@ TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 # Čárkou oddělená Telegram user ID, která smí bota používat. Prázdné = kdokoliv.
-ALLOWED_USERS = {
-    int(x) for x in os.getenv("TELEGRAM_ALLOWED_USERS", "").split(",") if x.strip().isdigit()
-}
+def _parse_allowed_users(raw: str) -> set[int]:
+    """Fail closed: neplatná položka (překlep, @username...) je chyba konfigurace –
+    radši spadnout při startu než tiše zpřístupnit bota všem."""
+    tokens = [t.strip() for t in raw.split(",") if t.strip()]
+    invalid = [t for t in tokens if not t.isdigit()]
+    if invalid:
+        raise ValueError(
+            f"TELEGRAM_ALLOWED_USERS obsahuje neplatné položky {invalid} – "
+            "očekávám číselná Telegram user ID oddělená čárkou (zjistíš příkazem /id)"
+        )
+    return {int(t) for t in tokens}
+
+
+ALLOWED_USERS = _parse_allowed_users(os.getenv("TELEGRAM_ALLOWED_USERS", ""))
 
 
 def is_authorized(user_id: int | None) -> bool:
