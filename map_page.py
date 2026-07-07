@@ -5,6 +5,7 @@ MAP_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>Výlety – mapa</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -203,7 +204,10 @@ window.deletePlace = function(key, btn){
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows}),
-  }).then(r => r.json()).then(res => {
+  }).then(r => {
+    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    return r.json();
+  }).then(res => {
     if(res.ok){
       // Čísla řádků se mazáním posunula → načíst mapu znovu s čerstvými daty
       location.reload();
@@ -223,7 +227,10 @@ window.setVisited = function(key, flag, btn){
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows, visited: flag}),
-  }).then(r => r.json()).then(res => {
+  }).then(r => {
+    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    return r.json();
+  }).then(res => {
     if(res.ok){
       item.visited = flag;
       item.marker.setStyle(markerStyle(item));

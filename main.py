@@ -59,7 +59,9 @@ def check_map_token(request: Request) -> None:
     if not MAP_TOKEN:
         return
     supplied = request.query_params.get("token", "")
-    if not secrets.compare_digest(supplied, MAP_TOKEN):
+    # encode: compare_digest se str argumenty vyžaduje ASCII – ne-ASCII vstup
+    # by shodil 500 místo čistého 403
+    if not secrets.compare_digest(supplied.encode(), MAP_TOKEN.encode()):
         raise HTTPException(status_code=403, detail="invalid or missing map token")
 
 
@@ -327,7 +329,8 @@ async def health():
 
 
 @app.get("/debug")
-async def debug():
+async def debug(request: Request):
+    check_map_token(request)
     return ffmpeg_diagnostics()
 
 
