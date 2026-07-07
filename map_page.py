@@ -5,6 +5,7 @@ MAP_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>Výlety – mapa</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -94,6 +95,10 @@ MAP_HTML = r"""<!DOCTYPE html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Token z URL mapy (/map?token=...) se předává všem datovým požadavkům
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+function withToken(path){ return TOKEN ? path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : path; }
+
 const COLORS = {
   "koupání": "#2196f3", "turistika": "#4caf50", "jídlo": "#ff9800",
   "kultura": "#9c27b0", "příroda": "#009688", "sport": "#f44336",
@@ -195,11 +200,14 @@ window.deletePlace = function(key, btn){
   }
   btn.disabled = true;
   const rows = item.group.map(p => p.row);
-  fetch("/delete", {
+  fetch(withToken("/delete"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows}),
-  }).then(r => r.json()).then(res => {
+  }).then(r => {
+    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    return r.json();
+  }).then(res => {
     if(res.ok){
       // Čísla řádků se mazáním posunula → načíst mapu znovu s čerstvými daty
       location.reload();
@@ -215,11 +223,14 @@ window.setVisited = function(key, flag, btn){
   if(!item) return;
   btn.disabled = true;
   const rows = item.group.map(p => p.row);
-  fetch("/visited", {
+  fetch(withToken("/visited"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows, visited: flag}),
-  }).then(r => r.json()).then(res => {
+  }).then(r => {
+    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    return r.json();
+  }).then(res => {
     if(res.ok){
       item.visited = flag;
       item.marker.setStyle(markerStyle(item));
@@ -272,7 +283,10 @@ visitedChip.onclick = () => {
   applyFilters();
 };
 
-fetch("/data").then(r => r.json()).then(places => {
+fetch(withToken("/data")).then(r => {
+  if(r.status === 403) throw new Error("Neplatný nebo chybějící token – otevři mapu přes odkaz s ?token=...");
+  return r.json();
+}).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
   const bounds = [];
 

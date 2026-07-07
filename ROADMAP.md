@@ -9,26 +9,26 @@ GitHubu všimli, dokázali ho rozjet a měli důvod ho používat.
 
 Nutný základ před tím, než má smysl repo propagovat.
 
-- [ ] **Přidat `LICENSE` (MIT)** — standardní MIT text s copyright hláškou
+- [x] **Přidat `LICENSE` (MIT)** — standardní MIT text s copyright hláškou
   (jméno + rok). GitHub licenci automaticky detekuje a zobrazí v hlavičce repa.
-- [ ] **Sekce `## Licence` v README** — jedna věta s odkazem na LICENSE.
-- [ ] **Právní disclaimer do README** — stahování videí přes yt-dlp porušuje
+- [x] **Sekce `## Licence` v README** — jedna věta s odkazem na LICENSE.
+- [x] **Právní disclaimer do README** — stahování videí přes yt-dlp porušuje
   podmínky služeb Meta. Napsat jasně: nástroj slouží k osobní archivaci,
   používání na vlastní odpovědnost.
-- [ ] **Vyjasnit self-hosted povahu** — README teď zve čtenáře k použití
+- [x] **Vyjasnit self-hosted povahu** — README teď zve čtenáře k použití
   soukromého bota. Přeformulovat na „svého bota" (každý si nasazuje vlastní
   instanci s vlastním Sheetem a vlastními klíči). Zvážit whitelist povolených
   Telegram user ID v kódu, aby cizí lidé nečerpali Gemini kredit.
-- [ ] **Opravit placeholder v `.env.example`** — `AIzaSy_your_gemini_api_key_here`
+  *(hotovo: `TELEGRAM_ALLOWED_USERS` + příkaz `/id`, fail-closed validace)*
+- [x] **Opravit placeholder v `.env.example`** — `AIzaSy_your_gemini_api_key_here`
   začíná skutečným prefixem Google klíčů a secret-scannery ho falešně hlásí.
   Přepsat na neutrální `your_gemini_api_key_here`.
-- [ ] **BLOCKER: chránit mutační endpointy mapy** — `POST /delete` a
+- [x] **BLOCKER: chránit mutační endpointy mapy** — `POST /delete` a
   `POST /visited` nemají žádnou autentizaci; kdokoliv, kdo zjistí URL instance,
   může mazat data. `GET /data` navíc veřejně vydává celou databázi míst.
-  Řešení: jednoduchý token v URL mapy (`/map?token=...`), který mapa předává
-  v požadavcích na `/data`, `/visited` a `/delete`; server ho ověřuje proti
-  env variable. Bez tokenu mapa jen pro čtení, mutace zamítnout. Nutné
-  dořešit před propagací repa (souvisí se sdílením mapy ve Fázi 5).
+  *(hotovo: env `MAP_TOKEN`; mapa se otevírá přes `/map?token=...` a token
+  předává na `/data`, `/visited` i `/delete`; server ověřuje konstantním
+  porovnáním. Prázdný `MAP_TOKEN` = mapa veřejná — vědomá volba self-hostera.)*
 
 ---
 
