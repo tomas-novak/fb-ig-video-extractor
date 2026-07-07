@@ -21,6 +21,33 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
+# Čárkou oddělená Telegram user ID, která smí bota používat. Prázdné = kdokoliv.
+def _parse_allowed_users(raw: str) -> set[int]:
+    """Fail closed: neplatná položka (překlep, @username...) je chyba konfigurace –
+    radši spadnout při startu než tiše zpřístupnit bota všem."""
+    tokens = [t.strip() for t in raw.split(",") if t.strip()]
+    invalid = [t for t in tokens if not t.isdigit()]
+    if invalid:
+        raise ValueError(
+            f"TELEGRAM_ALLOWED_USERS obsahuje neplatné položky {invalid} – "
+            "očekávám číselná Telegram user ID oddělená čárkou (zjistíš příkazem /id)"
+        )
+    return {int(t) for t in tokens}
+
+
+ALLOWED_USERS = _parse_allowed_users(os.getenv("TELEGRAM_ALLOWED_USERS", ""))
+
+
+def is_authorized(user_id: int | None) -> bool:
+    return not ALLOWED_USERS or user_id in ALLOWED_USERS
+
+
+def is_command(text: str, cmd: str) -> bool:
+    """Přesná shoda příkazu: '/id' i '/id@NazevBota', ale ne '/idea'."""
+    parts = text.split()
+    first = parts[0].lower() if parts else ""
+    return first == cmd or first.startswith(cmd + "@")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,6 +112,10 @@ async def webhook(request: Request):
     # Odpověď na tlačítka Sloučit/Ponechat u návrhů duplikátů
     callback = update.get("callback_query")
     if callback:
+        if not is_authorized((callback.get("from") or {}).get("id")):
+            # odpovědět prázdně, ať cizímu uživateli nevisí "točící se" tlačítko
+            await answer_callback(callback["id"])
+            return {"ok": True}
         task = asyncio.create_task(handle_callback(callback))
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
@@ -96,9 +127,22 @@ async def webhook(request: Request):
 
     chat_id = message["chat"]["id"]
     text = (message.get("text") or "").strip()
+    user_id = (message.get("from") or {}).get("id")
+
+    # /id funguje pro každého – potřebné pro prvotní nastavení whitelistu
+    if is_command(text, "/id") and user_id is not None:
+        await send_message(chat_id, f"🆔 Tvoje Telegram user ID: {user_id}")
+        return {"ok": True}
+
+    if not is_authorized(user_id):
+        if user_id is not None:
+            await send_message(chat_id, "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
+                                        f"svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.")
+        # channel_post bez odesílatele při zapnutém whitelistu tiše ignorovat
+        return {"ok": True}
 
     # Příkaz: kontrola duplicitních míst
-    if text.lower().startswith("/zkontroluj"):
+    if is_command(text, "/zkontroluj"):
         await send_message(chat_id, "🔍 Kontroluji duplicitní místa, chvíli počkej...")
         task = asyncio.create_task(run_dedup_check(chat_id))
         _background_tasks.add(task)
