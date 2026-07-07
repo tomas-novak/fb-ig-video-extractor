@@ -14,7 +14,7 @@ from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
-from geocoder import geocode, maps_link
+from geocoder import geocode, maps_link, distance_km
 from dedup import find_duplicates
 from map_page import MAP_HTML
 
@@ -157,6 +157,15 @@ async def webhook(request: Request):
         # channel_post bez odesílatele při zapnutém whitelistu tiše ignorovat
         return {"ok": True}
 
+    # Poslaná poloha -> nejbližší uložená místa
+    location = message.get("location")
+    if location and "latitude" in location:
+        task = asyncio.create_task(
+            handle_location(chat_id, location["latitude"], location["longitude"]))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return {"ok": True}
+
     # Příkaz: kontrola duplicitních míst
     if is_command(text, "/zkontroluj"):
         await send_message(chat_id, "🔍 Kontroluji duplicitní místa, chvíli počkej...")
@@ -167,7 +176,8 @@ async def webhook(request: Request):
 
     if not is_valid_url(text):
         await send_message(chat_id, "Pošli mi URL Facebook nebo Instagram Reels videa.\n"
-                                    "Nebo napiš /zkontroluj pro kontrolu duplicitních míst.")
+                                    "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n"
+                                    "/zkontroluj – kontrola duplicitních míst")
         return {"ok": True}
 
     # Zpracování v background tasku aby webhook rychle odpověděl.
@@ -254,6 +264,58 @@ async def process_video(chat_id: int, url: str) -> None:
                 os.rmdir(os.path.dirname(media_path))
             except OSError:
                 pass
+
+
+NEARBY_RADIUS_KM = 50
+NEARBY_LIMIT = 5
+
+
+def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[float, dict]]:
+    """Nenavštívená místa seřazená podle vzdálenosti od dané polohy.
+    Sloučené skupiny (group_id) počítá jednou. Vrací [(vzdálenost_km, místo), ...]."""
+    groups: dict[str, list[dict]] = {}
+    for p in places:
+        key = p["group_id"] or f"solo-{p['row']}"
+        groups.setdefault(key, []).append(p)
+
+    result = []
+    for group in groups.values():
+        if any(p["visited"] for p in group):
+            continue
+        # Řádky skupiny mohou mít různé souřadnice (např. sloučení dvou odhadů) –
+        # reprezentantem je záznam nejblíž k uživateli, ne group[0]
+        rep = min(group, key=lambda p: distance_km(lat, lng, p["lat"], p["lng"]))
+        result.append((distance_km(lat, lng, rep["lat"], rep["lng"]), rep))
+    result.sort(key=lambda x: x[0])
+    return result
+
+
+async def handle_location(chat_id: int, lat: float, lng: float) -> None:
+    """Odpoví seznamem nejbližších uložených (nenavštívených) míst."""
+    try:
+        places = await asyncio.to_thread(read_rows)
+        ranked = nearest_places(places, lat, lng)
+        if not ranked:
+            await send_message(chat_id, "Nemáš uložená žádná nenavštívená místa.")
+            return
+
+        nearby = [(d, p) for d, p in ranked if d <= NEARBY_RADIUS_KM][:NEARBY_LIMIT]
+        if not nearby:
+            d, p = ranked[0]
+            url = p["maps_url"] or maps_link(name=p["location_name"])
+            await send_message(chat_id, f"V okruhu {NEARBY_RADIUS_KM} km nemáš nic uloženo. "
+                                        f"Nejblíž je:\n📍 {p['location_name']} ({d:.0f} km)\n🧭 {url}")
+            return
+
+        lines = [f"📍 Nejbližší uložená místa ({len(nearby)}):", ""]
+        for d, p in nearby:
+            url = p["maps_url"] or maps_link(name=p["location_name"])
+            dist = f"{d:.1f} km" if d < 10 else f"{d:.0f} km"
+            lines.append(f"• {p['location_name']} – {dist} ({p['category']})")
+            lines.append(f"  🧭 {url}")
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Hledání selhalo: {type(e).__name__}: {e}")
 
 
 async def run_dedup_check(chat_id: int) -> None:
