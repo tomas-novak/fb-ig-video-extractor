@@ -22,6 +22,13 @@ Nutný základ před tím, než má smysl repo propagovat.
 - [ ] **Opravit placeholder v `.env.example`** — `AIzaSy_your_gemini_api_key_here`
   začíná skutečným prefixem Google klíčů a secret-scannery ho falešně hlásí.
   Přepsat na neutrální `your_gemini_api_key_here`.
+- [ ] **BLOCKER: chránit mutační endpointy mapy** — `POST /delete` a
+  `POST /visited` nemají žádnou autentizaci; kdokoliv, kdo zjistí URL instance,
+  může mazat data. `GET /data` navíc veřejně vydává celou databázi míst.
+  Řešení: jednoduchý token v URL mapy (`/map?token=...`), který mapa předává
+  v požadavcích na `/data`, `/visited` a `/delete`; server ho ověřuje proti
+  env variable. Bez tokenu mapa jen pro čtení, mutace zamítnout. Nutné
+  dořešit před propagací repa (souvisí se sdílením mapy ve Fázi 5).
 
 ---
 
