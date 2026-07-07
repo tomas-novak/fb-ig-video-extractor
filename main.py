@@ -21,6 +21,15 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
+# Čárkou oddělená Telegram user ID, která smí bota používat. Prázdné = kdokoliv.
+ALLOWED_USERS = {
+    int(x) for x in os.getenv("TELEGRAM_ALLOWED_USERS", "").split(",") if x.strip().isdigit()
+}
+
+
+def is_authorized(user_id: int | None) -> bool:
+    return not ALLOWED_USERS or user_id in ALLOWED_USERS
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,6 +94,8 @@ async def webhook(request: Request):
     # Odpověď na tlačítka Sloučit/Ponechat u návrhů duplikátů
     callback = update.get("callback_query")
     if callback:
+        if not is_authorized((callback.get("from") or {}).get("id")):
+            return {"ok": True}
         task = asyncio.create_task(handle_callback(callback))
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
@@ -96,6 +107,17 @@ async def webhook(request: Request):
 
     chat_id = message["chat"]["id"]
     text = (message.get("text") or "").strip()
+    user_id = (message.get("from") or {}).get("id")
+
+    # /id funguje pro každého – potřebné pro prvotní nastavení whitelistu
+    if text.lower().startswith("/id"):
+        await send_message(chat_id, f"🆔 Tvoje Telegram user ID: {user_id}")
+        return {"ok": True}
+
+    if not is_authorized(user_id):
+        await send_message(chat_id, "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
+                                    f"svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.")
+        return {"ok": True}
 
     # Příkaz: kontrola duplicitních míst
     if text.lower().startswith("/zkontroluj"):
