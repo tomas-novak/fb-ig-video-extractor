@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import sys
 import httpx
 from contextlib import asynccontextmanager
@@ -47,6 +48,19 @@ def is_command(text: str, cmd: str) -> bool:
     parts = text.split()
     first = parts[0].lower() if parts else ""
     return first == cmd or first.startswith(cmd + "@")
+
+
+# Token chránící mapová data (/data, /visited, /delete). Prázdné = mapa veřejná.
+MAP_TOKEN = os.getenv("MAP_TOKEN", "")
+
+
+def check_map_token(request: Request) -> None:
+    """Ověří ?token= v URL proti MAP_TOKEN. Když MAP_TOKEN není nastaven, pustí vše."""
+    if not MAP_TOKEN:
+        return
+    supplied = request.query_params.get("token", "")
+    if not secrets.compare_digest(supplied, MAP_TOKEN):
+        raise HTTPException(status_code=403, detail="invalid or missing map token")
 
 
 @asynccontextmanager
@@ -318,7 +332,8 @@ async def debug():
 
 
 @app.get("/data")
-async def data():
+async def data(request: Request):
+    check_map_token(request)
     try:
         places = await asyncio.to_thread(read_rows)
         return JSONResponse(places)
@@ -329,6 +344,7 @@ async def data():
 @app.post("/visited")
 async def visited(request: Request):
     """Označí místa (řádky) jako navštívená/nenavštívená – volá mapa."""
+    check_map_token(request)
     try:
         data = await request.json()
         rows = [int(r) for r in data.get("rows", [])]
@@ -344,6 +360,7 @@ async def visited(request: Request):
 @app.post("/delete")
 async def delete_place(request: Request):
     """Smaže místo (řádky) z tabulky – volá mapa po dvoufázovém potvrzení."""
+    check_map_token(request)
     try:
         data = await request.json()
         rows = [int(r) for r in data.get("rows", [])]

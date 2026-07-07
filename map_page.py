@@ -94,6 +94,10 @@ MAP_HTML = r"""<!DOCTYPE html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Token z URL mapy (/map?token=...) se předává všem datovým požadavkům
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+function withToken(path){ return TOKEN ? path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : path; }
+
 const COLORS = {
   "koupání": "#2196f3", "turistika": "#4caf50", "jídlo": "#ff9800",
   "kultura": "#9c27b0", "příroda": "#009688", "sport": "#f44336",
@@ -195,7 +199,7 @@ window.deletePlace = function(key, btn){
   }
   btn.disabled = true;
   const rows = item.group.map(p => p.row);
-  fetch("/delete", {
+  fetch(withToken("/delete"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows}),
@@ -215,7 +219,7 @@ window.setVisited = function(key, flag, btn){
   if(!item) return;
   btn.disabled = true;
   const rows = item.group.map(p => p.row);
-  fetch("/visited", {
+  fetch(withToken("/visited"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows, visited: flag}),
@@ -272,7 +276,10 @@ visitedChip.onclick = () => {
   applyFilters();
 };
 
-fetch("/data").then(r => r.json()).then(places => {
+fetch(withToken("/data")).then(r => {
+  if(r.status === 403) throw new Error("Neplatný nebo chybějící token – otevři mapu přes odkaz s ?token=...");
+  return r.json();
+}).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
   const bounds = [];
 
