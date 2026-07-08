@@ -65,8 +65,28 @@ def check_map_token(request: Request) -> None:
         raise HTTPException(status_code=403, detail="invalid or missing map token")
 
 
+def _public_url() -> str:
+    """Veřejná adresa instance: PUBLIC_URL, nebo automaticky z Railway."""
+    explicit = os.getenv("PUBLIC_URL", "").rstrip("/")
+    if explicit:
+        return explicit
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    return f"https://{railway_domain}" if railway_domain else ""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Auto-registrace Telegram webhooku – odpadá ruční krok při nasazení.
+    # Chyba nesmí zabránit startu (Telegram může být chvíli nedostupný).
+    url = _public_url()
+    if url:
+        try:
+            await set_webhook(url)
+        except Exception as e:
+            print(f"[webhook] auto-registrace selhala: {type(e).__name__}: {e}")
+    else:
+        print("[webhook] PUBLIC_URL ani RAILWAY_PUBLIC_DOMAIN není nastaveno – "
+              "webhook zaregistruj ručně: python main.py --set-webhook <url>")
     yield
 
 
@@ -442,7 +462,7 @@ async def map_view():
     return HTMLResponse(MAP_HTML)
 
 
-# Pomocný skript pro registraci webhooku
+# Registrace webhooku (volá se automaticky při startu, ručně přes --set-webhook)
 async def set_webhook(public_url: str):
     url = f"{TELEGRAM_API}/setWebhook"
     params = {"url": f"{public_url}/webhook"}
@@ -450,7 +470,7 @@ async def set_webhook(public_url: str):
         params["secret_token"] = WEBHOOK_SECRET
     async with httpx.AsyncClient() as client:
         r = await client.post(url, json=params)
-        print(r.json())
+        print(f"[webhook] setWebhook {public_url}/webhook -> {r.json()}")
 
 
 if __name__ == "__main__":

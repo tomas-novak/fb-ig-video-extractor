@@ -1,0 +1,13 @@
+# Self-hosted nasazení (VPS, NAS, Raspberry Pi):
+#   1. zkopíruj .env.example na .env a vyplň klíče
+#   2. nastav PUBLIC_URL na veřejnou adresu instance (kvůli Telegram webhooku)
+#   3. docker compose up -d
+services:
+  bot:
+    build: .
+    env_file: .env
+    environment:
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
