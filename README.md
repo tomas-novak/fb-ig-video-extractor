@@ -43,14 +43,55 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 - FastAPI + Railway (backend hosting)
 - Leaflet + OpenStreetMap (mapa)
 
-## Nastavení (pro vývojáře)
+## Nastavení — vlastní instance (~15 minut, vše zdarma)
 
-Viz [CLAUDE.md](CLAUDE.md) pro detailní technickou dokumentaci a
-[ROADMAP.md](ROADMAP.md) pro plánované featury.
+Potřebuješ 4 klíče a jedno nasazení. Postupně:
 
-Po nasazení doporučujeme nastavit `TELEGRAM_ALLOWED_USERS` (čárkou oddělená
-Telegram user ID), aby bota nemohl používat nikdo cizí a čerpat tvůj API
-kredit. Svoje ID zjistíš příkazem `/id` poslaným botovi.
+### 1. Telegram bot (2 min)
+V Telegramu napiš [@BotFather](https://t.me/BotFather) → `/newbot` → zvol
+jméno. Dostaneš **token** (`123456:ABC-...`) → `TELEGRAM_BOT_TOKEN`.
+
+### 2. Gemini API klíč (2 min)
+[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) →
+Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
+
+### 3. Google Sheets + service account (5–10 min, nejtěžší krok)
+1. Vytvoř prázdnou Google tabulku; z URL zkopíruj její ID → `GOOGLE_SHEETS_ID`
+2. [console.cloud.google.com](https://console.cloud.google.com) → vytvoř
+   projekt → zapni **Google Sheets API**
+3. Credentials → Create Credentials → **Service Account** → u něj Keys →
+   Add Key → JSON (stáhne se soubor)
+4. Obsah JSON souboru (jeden řádek) → `GOOGLE_SERVICE_ACCOUNT_JSON`
+5. Tabulku **nasdílej** (Editor) na e-mail service accountu
+   (`...@....iam.gserviceaccount.com`)
+
+### 4. Volitelné klíče
+- `GOOGLE_MAPS_API_KEY` — přesné souřadnice míst (Places API New; bez něj se
+  použijí odhady AI)
+- `ANTHROPIC_API_KEY` — kontrola duplicitních míst příkazem `/zkontroluj`
+- `MAP_TOKEN` — ochrana mapy (bez něj je mapa veřejná)
+- `WEBHOOK_SECRET` — ověřování Telegram webhooků
+
+### 5. Nasazení
+
+**Railway:** nové Project → Deploy from GitHub repo (fork tohoto repa) →
+vlož proměnné z `.env.example` → Generate Domain. Webhook se zaregistruje
+automaticky.
+
+**Docker (VPS, NAS, Raspberry Pi):**
+```bash
+cp .env.example .env   # vyplň klíče + PUBLIC_URL
+docker compose up -d
+```
+
+### 6. Po nasazení
+1. Pošli botovi `/id` → vrátí tvoje Telegram ID
+2. Nastav `TELEGRAM_ALLOWED_USERS=<tvoje_id>` — jinak může bota používat
+   kdokoliv a čerpat tvůj API kredit
+3. Mapa: `https://tvoje-instance/map?token=MAP_TOKEN`
+
+Detailní technická dokumentace: [CLAUDE.md](CLAUDE.md) · plán featur:
+[ROADMAP.md](ROADMAP.md)
 
 ## Právní upozornění
 

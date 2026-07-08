@@ -1,0 +1,10 @@
+.env
+*.json
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+*.mp3
+*.mp4
+railway-variables.local.txt

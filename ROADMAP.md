@@ -55,14 +55,17 @@ scrollování — potřebují vidět, ne číst.
 Každý ruční krok odfiltruje část zájemců. Teď jsou potřeba 4 credentials a
 ruční registrace webhooku.
 
-- [ ] **Automatická registrace webhooku při startu** — místo ručního
+- [x] **Automatická registrace webhooku při startu** — místo ručního
   `python main.py --set-webhook` zavolat `setWebhook` v `lifespan` handleru,
   pokud je nastavená env variable `PUBLIC_URL`. Jeden krok setup navíc zmizí.
-- [ ] **`Dockerfile` + `docker-compose.yml`** — pro self-hostery (VPS, NAS,
+  *(hotovo: na Railway funguje zcela automaticky přes `RAILWAY_PUBLIC_DOMAIN`,
+  jinde přes `PUBLIC_URL`; selhání registrace nebrání startu)*
+- [x] **`Dockerfile` + `docker-compose.yml`** — pro self-hostery (VPS, NAS,
   Raspberry Pi). Compose soubor načte `.env`, jediný příkaz: `docker compose up`.
 - [ ] **„Deploy on Railway" tlačítko** — Railway template s předdefinovanými
   env variables (názvy + popisky). Uživatel jen vyplní hodnoty ve formuláři.
-- [ ] **Setup průvodce v README** — očíslovaný postup se všemi kroky:
+  *(vyžaduje publikovat template z Railway účtu autora — až po zveřejnění repa)*
+- [x] **Setup průvodce v README** — očíslovaný postup se všemi kroky:
   1. BotFather → token (2 min)
   2. Google AI Studio → Gemini klíč (2 min)
   3. Google Cloud → service account + sdílení Sheetu (5–10 min, nejtěžší krok
