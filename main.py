@@ -341,7 +341,8 @@ def search_places(places: list[dict], query: str) -> list[dict]:
     for group in groups.values():
         rep = group[0]
         score = 0
-        if q in _fold(rep["location_name"]):
+        # Sloučené řádky mohou mít různé varianty názvu – hledat ve všech
+        if any(q in _fold(p["location_name"]) for p in group):
             score += 3
         if any(q in _fold(p["tags"]) for p in group):
             score += 2
@@ -511,12 +512,16 @@ async def data(request: Request):
 
 
 def _export_places(places: list[dict]) -> list[dict]:
-    """Jedno místo na skupinu (group_id), stejně jako na mapě."""
+    """Jedno místo na skupinu (group_id), stejně jako na mapě.
+    Stav navštíveno se agreguje přes celou skupinu (shodně s mapou)."""
     groups: dict[str, list[dict]] = {}
     for p in places:
         key = p["group_id"] or f"solo-{p['row']}"
         groups.setdefault(key, []).append(p)
-    return [g[0] | {"urls": [x["url"] for x in g if x["url"]]} for g in groups.values()]
+    return [g[0] | {
+        "urls": [x["url"] for x in g if x["url"]],
+        "visited": any(x["visited"] for x in g),
+    } for g in groups.values()]
 
 
 def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
