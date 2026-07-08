@@ -125,14 +125,19 @@ Featury, které promění pasivní sbírku míst v nástroj používaný přímo
   (haversine) je pár řádků. Killer feature: použiješ ji, když někde reálně jsi.
   *(hotovo: 5 nejbližších nenavštívených míst do 50 km, sloučené skupiny
   jednou; když v okruhu nic není, ukáže aspoň nejbližší místo)*
-- [ ] **Sdílení mapy** — read-only odkaz na `/map` pro partnera/kamarády při
+- [x] **Sdílení mapy** — read-only odkaz na `/map` pro partnera/kamarády při
   plánování. Zvážit jednoduchý token v URL, aby mapa nebyla úplně veřejná
   (skrývá i tlačítka mazání/visited pro cizí návštěvníky).
-- [ ] **Export dat** — endpoint `/export` s formáty GeoJSON, GPX a KML.
+  *(hotovo: `MAP_VIEW_TOKEN` – server mutace zamítá, mapa tlačítka skryje
+  podle hlavičky X-Can-Edit)*
+- [x] **Export dat** — endpoint `/export` s formáty GeoJSON, GPX a KML.
   Umožní import pinů do Mapy.cz, Organic Maps nebo Google My Maps.
   Signalizuje „tvá data ti patří" — cestovatelská komunita to oceňuje.
-- [ ] **Vyhledávání v Telegramu (volitelné)** — příkaz `/hledej <text>`
+  *(hotovo: `/export?format=geojson|gpx|kml`, odkazy přímo v panelu mapy;
+  jedno místo na skupinu, včetně všech video URL)*
+- [x] **Vyhledávání v Telegramu (volitelné)** — příkaz `/hledej <text>`
   prohledá názvy míst, tagy a shrnutí, vrátí pár nejlepších shod s odkazy.
+  *(hotovo: bez diakritiky – „hriste" najde „hřiště"; navštívená označena ✅)*
 
 ---
 

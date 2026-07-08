@@ -88,6 +88,8 @@ MAP_HTML = r"""<!DOCTYPE html>
       </span>
     </div>
     <div class="filters" id="tag-filters"></div>
+    <div class="group-label">Export</div>
+    <div class="filters" id="export-links"></div>
   </div>
   <div id="status"></div>
 </div>
@@ -123,6 +125,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 map.on("click", () => setOpen(false));
 
+let CAN_EDIT = true;     // false = read-only sdílený pohled (server skryje mutace)
 const items = {};        // key -> {marker, category, tags[], visited, group[]}
 const activeCat = {};    // kategorie -> bool
 const activeTag = {};    // tag -> bool
@@ -171,12 +174,14 @@ function buildPopup(key){
   if(rep.geo_source === "gemini"){
     html += '<div class="popup-tags">⚠️ přibližná poloha (odhad AI)</div>';
   }
-  if(item.visited){
-    html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">↩️ Vrátit mezi nenavštívené</button>';
-  } else {
-    html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">✅ Už jsme navštívili</button>';
+  if(CAN_EDIT){
+    if(item.visited){
+      html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">↩️ Vrátit mezi nenavštívené</button>';
+    } else {
+      html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">✅ Už jsme navštívili</button>';
+    }
+    html += '<button class="del-btn" onclick="deletePlace(\''+key+'\', this)">🗑️ Smazat místo</button>';
   }
-  html += '<button class="del-btn" onclick="deletePlace(\''+key+'\', this)">🗑️ Smazat místo</button>';
   return html;
 }
 
@@ -273,6 +278,16 @@ function buildTagFilters(){
   });
 }
 
+// Odkazy na export (GeoJSON pro webové mapy, GPX/KML pro Mapy.cz, Organic Maps...)
+const expBox = document.getElementById("export-links");
+["geojson", "gpx", "kml"].forEach(fmt => {
+  const a = document.createElement("a");
+  a.className = "chip";
+  a.textContent = "⬇ " + fmt.toUpperCase();
+  a.href = withToken("/export?format=" + fmt);
+  expBox.appendChild(a);
+});
+
 // Přepínač zobrazení navštívených míst
 const visitedChip = document.getElementById("visited-toggle");
 visitedChip.classList.add("off");
@@ -285,6 +300,7 @@ visitedChip.onclick = () => {
 
 fetch(withToken("/data")).then(r => {
   if(r.status === 403) throw new Error("Neplatný nebo chybějící token – otevři mapu přes odkaz s ?token=...");
+  CAN_EDIT = r.headers.get("X-Can-Edit") !== "0";
   return r.json();
 }).then(places => {
   if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }

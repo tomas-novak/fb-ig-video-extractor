@@ -2,6 +2,7 @@ import asyncio
 import os
 import secrets
 import sys
+import unicodedata
 import httpx
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -52,17 +53,42 @@ def is_command(text: str, cmd: str) -> bool:
 
 # Token chránící mapová data (/data, /visited, /delete). Prázdné = mapa veřejná.
 MAP_TOKEN = os.getenv("MAP_TOKEN", "")
+# Volitelný read-only token pro sdílení mapy (jen prohlížení, žádné mazání/visited).
+MAP_VIEW_TOKEN = os.getenv("MAP_VIEW_TOKEN", "")
+
+# Fail closed: view token bez hlavního tokenu by mapu tiše nechal úplně veřejnou.
+if MAP_VIEW_TOKEN and not MAP_TOKEN:
+    raise ValueError("MAP_VIEW_TOKEN je nastaven bez MAP_TOKEN – mapa by zůstala "
+                     "veřejná. Nastav i MAP_TOKEN, nebo MAP_VIEW_TOKEN odstraň.")
+if MAP_VIEW_TOKEN and MAP_VIEW_TOKEN == MAP_TOKEN:
+    print("[config] VAROVÁNÍ: MAP_VIEW_TOKEN je shodný s MAP_TOKEN – sdílený "
+          "odkaz má plná práva včetně mazání. Zvol jinou hodnotu.")
 
 
-def check_map_token(request: Request) -> None:
-    """Ověří ?token= v URL proti MAP_TOKEN. Když MAP_TOKEN není nastaven, pustí vše."""
+def _token_matches(supplied: str, expected: str) -> bool:
+    # encode: compare_digest se str argumenty vyžaduje ASCII – ne-ASCII vstup
+    # by shodil 500 místo čistého 403
+    return bool(expected) and secrets.compare_digest(supplied.encode(), expected.encode())
+
+
+def check_map_token(request: Request, write: bool = True) -> None:
+    """Ověří ?token= v URL. write=True vyžaduje hlavní MAP_TOKEN,
+    write=False pustí i read-only MAP_VIEW_TOKEN. Bez MAP_TOKEN je vše veřejné."""
     if not MAP_TOKEN:
         return
     supplied = request.query_params.get("token", "")
-    # encode: compare_digest se str argumenty vyžaduje ASCII – ne-ASCII vstup
-    # by shodil 500 místo čistého 403
-    if not secrets.compare_digest(supplied.encode(), MAP_TOKEN.encode()):
-        raise HTTPException(status_code=403, detail="invalid or missing map token")
+    if _token_matches(supplied, MAP_TOKEN):
+        return
+    if not write and _token_matches(supplied, MAP_VIEW_TOKEN):
+        return
+    raise HTTPException(status_code=403, detail="invalid or missing map token")
+
+
+def can_edit_map(request: Request) -> bool:
+    """True, když má požadavek plná práva (mazání, visited)."""
+    if not MAP_TOKEN:
+        return True
+    return _token_matches(request.query_params.get("token", ""), MAP_TOKEN)
 
 
 def _public_url() -> str:
@@ -186,6 +212,17 @@ async def webhook(request: Request):
         task.add_done_callback(_background_tasks.discard)
         return {"ok": True}
 
+    # Příkaz: fulltextové hledání v uložených místech
+    if is_command(text, "/hledej"):
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            await send_message(chat_id, "Použití: /hledej <text>\nnapř. /hledej tobogán")
+            return {"ok": True}
+        task = asyncio.create_task(handle_search(chat_id, parts[1].strip()))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return {"ok": True}
+
     # Příkaz: kontrola duplicitních míst
     if is_command(text, "/zkontroluj"):
         await send_message(chat_id, "🔍 Kontroluji duplicitní místa, chvíli počkej...")
@@ -197,6 +234,7 @@ async def webhook(request: Request):
     if not is_valid_url(text):
         await send_message(chat_id, "Pošli mi URL Facebook nebo Instagram Reels videa.\n"
                                     "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n"
+                                    "/hledej <text> – hledání v uložených místech\n"
                                     "/zkontroluj – kontrola duplicitních míst")
         return {"ok": True}
 
@@ -288,6 +326,59 @@ async def process_video(chat_id: int, url: str) -> None:
 
 NEARBY_RADIUS_KM = 50
 NEARBY_LIMIT = 5
+SEARCH_LIMIT = 5
+
+
+def _fold(s: str) -> str:
+    """lowercase + odstranění diakritiky ('Hřiště' -> 'hriste')."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower())
+                   if not unicodedata.combining(c))
+
+
+def search_places(places: list[dict], query: str) -> list[dict]:
+    """Fulltext v názvu (váha 3), tazích (2) a shrnutí (1). Skupiny jednou."""
+    q = _fold(query.strip())
+    if not q:
+        return []
+    groups: dict[str, list[dict]] = {}
+    for p in places:
+        key = p["group_id"] or f"solo-{p['row']}"
+        groups.setdefault(key, []).append(p)
+
+    scored = []
+    for group in groups.values():
+        rep = group[0]
+        score = 0
+        # Sloučené řádky mohou mít různé varianty názvu – hledat ve všech
+        if any(q in _fold(p["location_name"]) for p in group):
+            score += 3
+        if any(q in _fold(p["tags"]) for p in group):
+            score += 2
+        if any(q in _fold(p["summary"]) for p in group):
+            score += 1
+        if score:
+            rep = rep | {"visited": any(p["visited"] for p in group)}
+            scored.append((score, rep))
+    scored.sort(key=lambda x: -x[0])
+    return [rep for _, rep in scored[:SEARCH_LIMIT]]
+
+
+async def handle_search(chat_id: int, query: str) -> None:
+    try:
+        places = await asyncio.to_thread(read_rows)
+        hits = search_places(places, query)
+        if not hits:
+            await send_message(chat_id, f"🔍 Pro „{query}“ jsem nic nenašel.")
+            return
+        lines = [f"🔍 Nalezeno pro „{query}“:", ""]
+        for p in hits:
+            mark = " ✅" if p["visited"] else ""
+            url = p["maps_url"] or maps_link(name=p["location_name"])
+            lines.append(f"• {p['location_name']} ({p['category']}){mark}")
+            lines.append(f"  🧭 {url}")
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Hledání selhalo: {type(e).__name__}: {e}")
 
 
 def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[float, dict]]:
@@ -418,12 +509,101 @@ async def debug(request: Request):
 
 @app.get("/data")
 async def data(request: Request):
-    check_map_token(request)
+    check_map_token(request, write=False)
     try:
         places = await asyncio.to_thread(read_rows)
-        return JSONResponse(places)
+        # Mapa podle hlavičky pozná, zda smí ukázat tlačítka mazání/visited
+        headers = {"X-Can-Edit": "1" if can_edit_map(request) else "0"}
+        return JSONResponse(places, headers=headers)
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+def _export_places(places: list[dict]) -> list[dict]:
+    """Jedno místo na skupinu (group_id), stejně jako na mapě.
+    Stav navštíveno se agreguje přes celou skupinu (shodně s mapou)."""
+    groups: dict[str, list[dict]] = {}
+    for p in places:
+        key = p["group_id"] or f"solo-{p['row']}"
+        groups.setdefault(key, []).append(p)
+    return [g[0] | {
+        "urls": [x["url"] for x in g if x["url"]],
+        "visited": any(x["visited"] for x in g),
+    } for g in groups.values()]
+
+
+def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
+    """Vrátí (obsah, media_type, přípona) pro geojson/gpx/kml."""
+    import json as _json
+    from xml.sax.saxutils import escape
+
+    items = _export_places(places)
+
+    if fmt == "geojson":
+        features = [{
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [p["lng"], p["lat"]]},
+            "properties": {
+                "name": p["location_name"], "category": p["category"],
+                "tags": p["tags"], "summary": p["summary"],
+                "visited": p["visited"], "videos": p["urls"],
+                "maps_url": p["maps_url"],
+            },
+        } for p in items]
+        content = _json.dumps({"type": "FeatureCollection", "features": features},
+                              ensure_ascii=False, indent=2)
+        return content, "application/geo+json", "geojson"
+
+    def desc(p):
+        parts = [p["category"]]
+        if p["tags"]:
+            parts.append(p["tags"])
+        if p["summary"]:
+            parts.append(p["summary"])
+        parts += p["urls"]
+        return escape(" | ".join(parts))
+
+    if fmt == "gpx":
+        wpts = "\n".join(
+            f'  <wpt lat="{p["lat"]}" lon="{p["lng"]}">\n'
+            f'    <name>{escape(p["location_name"])}</name>\n'
+            f'    <desc>{desc(p)}</desc>\n'
+            f'  </wpt>' for p in items)
+        content = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                   '<gpx version="1.1" creator="fb-ig-video-extractor" '
+                   'xmlns="http://www.topografix.com/GPX/1/1">\n'
+                   f'{wpts}\n</gpx>\n')
+        return content, "application/gpx+xml", "gpx"
+
+    if fmt == "kml":
+        marks = "\n".join(
+            f'    <Placemark>\n'
+            f'      <name>{escape(p["location_name"])}</name>\n'
+            f'      <description>{desc(p)}</description>\n'
+            f'      <Point><coordinates>{p["lng"]},{p["lat"]}</coordinates></Point>\n'
+            f'    </Placemark>' for p in items)
+        content = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                   '<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n'
+                   f'    <name>Výlety</name>\n{marks}\n  </Document>\n</kml>\n')
+        return content, "application/vnd.google-earth.kml+xml", "kml"
+
+    raise HTTPException(status_code=400, detail="format must be geojson, gpx or kml")
+
+
+@app.get("/export")
+async def export(request: Request, format: str = "geojson"):
+    """Export míst pro import do Mapy.cz, Organic Maps, Google My Maps..."""
+    check_map_token(request, write=False)
+    try:
+        places = await asyncio.to_thread(read_rows)
+        content, media_type, ext = _build_export(places, format.lower())
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+    from fastapi.responses import Response
+    return Response(content, media_type=media_type, headers={
+        "Content-Disposition": f'attachment; filename="vylety.{ext}"'})
 
 
 @app.post("/visited")
