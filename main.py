@@ -2,6 +2,7 @@ import asyncio
 import os
 import secrets
 import sys
+import unicodedata
 import httpx
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -54,6 +55,14 @@ def is_command(text: str, cmd: str) -> bool:
 MAP_TOKEN = os.getenv("MAP_TOKEN", "")
 # Volitelný read-only token pro sdílení mapy (jen prohlížení, žádné mazání/visited).
 MAP_VIEW_TOKEN = os.getenv("MAP_VIEW_TOKEN", "")
+
+# Fail closed: view token bez hlavního tokenu by mapu tiše nechal úplně veřejnou.
+if MAP_VIEW_TOKEN and not MAP_TOKEN:
+    raise ValueError("MAP_VIEW_TOKEN je nastaven bez MAP_TOKEN – mapa by zůstala "
+                     "veřejná. Nastav i MAP_TOKEN, nebo MAP_VIEW_TOKEN odstraň.")
+if MAP_VIEW_TOKEN and MAP_VIEW_TOKEN == MAP_TOKEN:
+    print("[config] VAROVÁNÍ: MAP_VIEW_TOKEN je shodný s MAP_TOKEN – sdílený "
+          "odkaz má plná práva včetně mazání. Zvol jinou hodnotu.")
 
 
 def _token_matches(supplied: str, expected: str) -> bool:
@@ -322,7 +331,6 @@ SEARCH_LIMIT = 5
 
 def _fold(s: str) -> str:
     """lowercase + odstranění diakritiky ('Hřiště' -> 'hriste')."""
-    import unicodedata
     return "".join(c for c in unicodedata.normalize("NFD", s.lower())
                    if not unicodedata.combining(c))
 
@@ -586,8 +594,13 @@ def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
 async def export(request: Request, format: str = "geojson"):
     """Export míst pro import do Mapy.cz, Organic Maps, Google My Maps..."""
     check_map_token(request, write=False)
-    places = await asyncio.to_thread(read_rows)
-    content, media_type, ext = _build_export(places, format.lower())
+    try:
+        places = await asyncio.to_thread(read_rows)
+        content, media_type, ext = _build_export(places, format.lower())
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
     from fastapi.responses import Response
     return Response(content, media_type=media_type, headers={
         "Content-Disposition": f'attachment; filename="vylety.{ext}"'})
