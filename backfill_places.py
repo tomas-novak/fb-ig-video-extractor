@@ -32,8 +32,15 @@ for i, row in enumerate(values, start=1):
         old_lng = float(str(row[6]).replace(",", "."))
     except ValueError:
         continue
-    if (row[15] or "").strip():
-        continue  # place_id už má (nový záznam)
+    pid = (row[15] or "").strip()
+    if pid:
+        # place_id už má – jen případná oprava starého formátu odkazu,
+        # který mobilní aplikace Google Maps neuměla otevřít
+        if "/maps/place/?q=place_id:" in (row[16] or ""):
+            updates.append(gspread.Cell(row=i, col=17,
+                                        value=maps_link(pid, lat=old_lat, lng=old_lng)))
+            report.append(f"radek {i}: {name} -> opraven format maps_url")
+        continue
 
     geo = geocode(name)
     if geo:
