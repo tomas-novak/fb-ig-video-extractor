@@ -8,6 +8,12 @@ import sys
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST_TOKEN_NOT_REAL")
 
+# Izolace od lokálního .env (main.py volá load_dotenv(), který existující
+# proměnné nepřepisuje): tyto proměnné mají v main.py fail-closed validaci
+# při importu a vývojářova konfigurace by jinak mohla shodit celou test suite.
+for _var in ("TELEGRAM_ALLOWED_USERS", "MAP_TOKEN", "MAP_VIEW_TOKEN"):
+    os.environ[_var] = ""
+
 # Import modulů projektu z kořene repa (testy běží z podsložky tests/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
