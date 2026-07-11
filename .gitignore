@@ -3,6 +3,8 @@
 railway-variables.local.txt
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
 *.mp3
 *.mp4
 *.tmp

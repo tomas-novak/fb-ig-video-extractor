@@ -65,7 +65,12 @@ Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění česky
         max_tokens=200,
         messages=[{"role": "user", "content": prompt}],
     )
-    raw = msg.content[0].text.strip()
+    return parse_verdict(msg.content[0].text)
+
+
+def parse_verdict(raw: str) -> dict:
+    """Parsuje JSON verdikt od Claude. Neparsovatelná odpověď = ne-duplikát (fail safe)."""
+    raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
