@@ -70,7 +70,9 @@ Viz `dedup.py`. Sloučení nic nemaže a je vratné (smazat group_id v tabulce).
 - `https://www.facebook.com/reel/ID`
 - `https://www.instagram.com/reel/ID`
 - `https://www.instagram.com/p/ID`
-- Share linky (zkrácené) — yt-dlp je automaticky rozbalí
+- `https://www.tiktok.com/@user/video/ID`
+- `https://www.youtube.com/shorts/ID`
+- Share linky (zkrácené: `fb.watch`, `vm.tiktok.com`, `youtu.be`) — yt-dlp je automaticky rozbalí
 
 ## Kategorie (pro filtrování v mapě)
 
@@ -98,4 +100,3 @@ uvicorn main:app --reload --port 8000
 - Google My Maps integrace (zobrazení pinů z Sheets)
 - Filtrování mapy podle kategorie
 - Migrace databáze na Supabase pro lepší dotazování
-- Podpora YouTube Shorts

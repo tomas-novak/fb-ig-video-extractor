@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml)
 
-Pošli URL Facebook nebo Instagram Reels **svému** Telegram botovi → AI
-automaticky vytáhne místo, přepíše zvuk a uloží vše do Google Sheets.
-Uložená místa pak vidíš na interaktivní mapě s filtry.
+Pošli URL krátkého videa (Facebook/Instagram Reels, TikTok, YouTube Shorts)
+**svému** Telegram botovi → AI automaticky vytáhne místo, přepíše zvuk a uloží
+vše do Google Sheets. Uložená místa pak vidíš na interaktivní mapě s filtry.
 
 Jde o **self-hosted** nástroj: každý si nasazuje vlastní instanci s vlastním
 botem, vlastní tabulkou a vlastními API klíči. Neexistuje žádný sdílený
@@ -17,8 +17,9 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 
 ## Jak to funguje
 
-1. Najdeš zajímavé video na Facebooku nebo Instagramu
+1. Najdeš zajímavé video na Facebooku, Instagramu, TikToku nebo YouTube
 2. Klikneš "Sdílet" → zkopíruješ URL → pošleš svému botovi v Telegramu
+   (fungují i zkrácené share linky: `fb.watch`, `vm.tiktok.com`, `youtu.be`)
 3. Bot do ~30 sekund odpoví:
    ```
    ✅ Uloženo!
@@ -115,6 +116,16 @@ Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
 - **Facebook občas blokuje datacenter IP.** Většinou funguje anonymně, ale
   při blokaci pomůže stejný postup s cookies. Stav instance zjistíš na
   endpointu `/debug?token=MAP_TOKEN`.
+- **YouTube ze serveru často vyžaduje cookies.** Datacenter IP YouTube běžně
+  blokuje hláškou „Sign in to confirm you're not a bot". Řešení je stejné
+  jako u Instagramu — do souboru s cookies přidej i cookies přihlášeného
+  YouTube/Google účtu (jeden `cookies.txt` může obsahovat obě domény;
+  proměnná se jmenuje `INSTAGRAM_COOKIES` z historických důvodů, obsah
+  platí pro všechny domény v souboru).
+- **TikTok zatím bez ověření provozem.** yt-dlp TikTok podporuje (včetně
+  `vm.tiktok.com` share linků) a stahuje anonymně; spolehlivost z datacenter
+  IP se může měnit podle anti-bot opatření TikToku. Kdyby stahování selhávalo,
+  založ issue s chybovou hláškou z odpovědi bota.
 - **Gemini free tier má rate limity.** Při rychlém posílání více videí za
   sebou může analýza dočasně selhat — chvíli počkej a pošli video znovu.
 - **Délka videa.** Bot je stavěný na krátká videa (Reels, do ~3 minut).

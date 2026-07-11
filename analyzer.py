@@ -2,6 +2,7 @@ import json
 import os
 import time
 import google.generativeai as genai
+from extractor import extract_source
 from models import VideoMetadata
 
 
@@ -126,8 +127,6 @@ def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> Vid
     # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
     data = json.loads(strip_fences(raw))
 
-    source = "instagram" if "instagram.com" in url else "facebook"
-
     return VideoMetadata(
         url=url,
         author=author,
@@ -140,5 +139,5 @@ def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> Vid
         tags=data.get("tags", ""),
         summary=data.get("summary", ""),
         transcript=data.get("transcript", ""),
-        source=source,
+        source=extract_source(url),
     )

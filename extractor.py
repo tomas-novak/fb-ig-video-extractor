@@ -88,8 +88,10 @@ def download_media(url: str) -> tuple[str, dict]:
         "no_warnings": True,
     }
 
-    # Cookies jsou workaround jen pro Instagram (FB funguje anonymně).
-    if "instagram.com" in url:
+    # Cookies jsou workaround pro platformy, které z datacenter IP blokují
+    # anonymní stahování: Instagram prakticky vždy, YouTube často ("Sign in to
+    # confirm you're not a bot"). FB a TikTok zatím fungují anonymně.
+    if extract_source(url) in ("instagram", "youtube"):
         cookies = _resolve_cookies()
         if cookies:
             ydl_opts["cookiefile"] = cookies
@@ -114,8 +116,14 @@ def download_media(url: str) -> tuple[str, dict]:
 
 
 def extract_source(url: str) -> str:
+    """Platforma podle URL – hodnota pro sloupec L (Zdroj) v tabulce.
+    Pokrývá i krátké share linky (fb.watch, vm.tiktok.com, youtu.be)."""
     if "instagram.com" in url:
         return "instagram"
     if "facebook.com" in url or "fb.watch" in url:
         return "facebook"
+    if "tiktok.com" in url:  # včetně vm.tiktok.com share linků
+        return "tiktok"
+    if "youtube.com" in url or "youtu.be" in url:
+        return "youtube"
     return "unknown"

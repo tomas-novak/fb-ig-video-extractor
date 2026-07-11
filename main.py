@@ -154,7 +154,11 @@ def friendly_error(err: str) -> str:
         return ("🔒 Nepodařilo se dostat k obsahu (Instagram nejspíš vyžaduje přihlášení "
                 "nebo vypršely cookies). U Facebook odkazů to funguje vždy.")
     if "unsupported url" in low or "unsupported" in low:
-        return "🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram videa/reels."
+        return ("🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram "
+                "videa/reels, TikTok a YouTube Shorts.")
+    if "sign in to confirm" in low or "not a bot" in low:
+        return ("🤖 YouTube blokuje stahování ze serveru (anti-bot ochrana). "
+                "Pomůže nastavit cookies přihlášeného účtu – viz Známé limity v README.")
     if "audio codec" in low or "ffprobe" in low or "requested format" in low:
         return ("🔇 Z videa se nepodařilo získat zvukovou stopu (možná nemá zvuk). "
                 "Zkus prosím jiné video.")
@@ -232,7 +236,8 @@ async def webhook(request: Request):
         return {"ok": True}
 
     if not is_valid_url(text):
-        await send_message(chat_id, "Pošli mi URL Facebook nebo Instagram Reels videa.\n"
+        await send_message(chat_id, "Pošli mi URL videa – Facebook/Instagram Reels, "
+                                    "TikTok nebo YouTube Shorts.\n"
                                     "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n"
                                     "/hledej <text> – hledání v uložených místech\n"
                                     "/zkontroluj – kontrola duplicitních míst")

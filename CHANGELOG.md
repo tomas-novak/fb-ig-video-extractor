@@ -7,6 +7,10 @@ a při prvním veřejném release se překlopí do verze.
 ## Nevydáno
 
 ### Přidáno
+- Podpora TikTok (včetně `vm.tiktok.com` share linků) a YouTube Shorts
+  (včetně `youtu.be`). Sloupec Zdroj nově nabývá hodnot `tiktok` a
+  `youtube`; cookies se pro YouTube používají stejně jako pro Instagram
+  a anti-bot blokace YouTube má vlastní srozumitelnou hlášku bota.
 - Základní testy (`pytest`) pro čisté funkce: validace URL a příkazů,
   parsování Gemini/Claude odpovědí, dedup předfiltr, vyhledávání `/hledej`,
   „místa poblíž", export GeoJSON/GPX/KML, parsování řádků tabulky.

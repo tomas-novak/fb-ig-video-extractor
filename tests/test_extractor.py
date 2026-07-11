@@ -15,5 +15,17 @@ class TestExtractSource:
     def test_instagram_post(self):
         assert extract_source("https://www.instagram.com/p/ABC/") == "instagram"
 
+    def test_tiktok(self):
+        assert extract_source("https://www.tiktok.com/@user/video/123") == "tiktok"
+
+    def test_tiktok_share_link(self):
+        assert extract_source("https://vm.tiktok.com/ZM123abc/") == "tiktok"
+
+    def test_youtube_shorts(self):
+        assert extract_source("https://www.youtube.com/shorts/xyz") == "youtube"
+
+    def test_youtube_short_link(self):
+        assert extract_source("https://youtu.be/xyz") == "youtube"
+
     def test_unknown(self):
-        assert extract_source("https://www.youtube.com/shorts/xyz") == "unknown"
+        assert extract_source("https://vimeo.com/12345") == "unknown"
