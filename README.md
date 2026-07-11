@@ -1,5 +1,7 @@
 # FB/IG Video Extractor — Cestovní deník přes Telegram
 
+[![CI](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml)
+
 Pošli URL Facebook nebo Instagram Reels **svému** Telegram botovi → AI
 automaticky vytáhne místo, přepíše zvuk a uloží vše do Google Sheets.
 Uložená místa pak vidíš na interaktivní mapě s filtry.
@@ -91,7 +93,36 @@ docker compose up -d
 3. Mapa: `https://tvoje-instance/map?token=MAP_TOKEN`
 
 Detailní technická dokumentace: [CLAUDE.md](CLAUDE.md) · plán featur:
-[ROADMAP.md](ROADMAP.md)
+[ROADMAP.md](ROADMAP.md) · změny: [CHANGELOG.md](CHANGELOG.md)
+
+## Vývoj a testy
+
+```bash
+pip install -r requirements-dev.txt
+pytest          # testy (běží bez reálných API klíčů)
+ruff check .    # lint
+```
+
+Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
+
+## Známé limity
+
+- **Instagram vyžaduje cookies.** Z datacenter IP (Railway apod.) Instagram
+  anonymní stahování většinou blokuje („login required"). Řešení: exportuj
+  cookies přihlášeného účtu (rozšíření typu *Get cookies.txt*) a nastav
+  `INSTAGRAM_COOKIES` (obsah souboru) nebo `COOKIES_FILE` (cesta k souboru).
+  Cookies občas vyprší a je potřeba je obnovit.
+- **Facebook občas blokuje datacenter IP.** Většinou funguje anonymně, ale
+  při blokaci pomůže stejný postup s cookies. Stav instance zjistíš na
+  endpointu `/debug?token=MAP_TOKEN`.
+- **Gemini free tier má rate limity.** Při rychlém posílání více videí za
+  sebou může analýza dočasně selhat — chvíli počkej a pošli video znovu.
+- **Délka videa.** Bot je stavěný na krátká videa (Reels, do ~3 minut).
+  Delší videa se déle nahrávají a zpracování v Gemini může vypršet
+  (čeká se max. 2 minuty).
+- **Souřadnice bez `GOOGLE_MAPS_API_KEY` jsou jen odhad.** Gemini souřadnice
+  odhaduje a může se splést i o kilometry; s Places API klíčem se místo
+  dohledá přesně.
 
 ## Právní upozornění
 

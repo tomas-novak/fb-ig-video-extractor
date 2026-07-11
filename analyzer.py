@@ -107,12 +107,24 @@ Pokud má video zvuk, přepiš mluvený projev do pole transcript."""
     except (ValueError, AttributeError) as e:
         # Gemini nevrátil textovou část (bezpečnostní blok, prázdná odpověď, MAX_TOKENS bez textu)
         raise RuntimeError(f"Gemini nevrátil žádný text k analýze ({e})")
-    # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
+
+    return parse_metadata(raw, url, author=author, title=title)
+
+
+def strip_fences(raw: str) -> str:
+    """Odstraní případné markdown fences (```json ... ```) kolem JSON odpovědi."""
+    raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
-    data = json.loads(raw)
+    return raw.strip()
+
+
+def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> VideoMetadata:
+    """Převede JSON odpověď Gemini na VideoMetadata. Vyhazuje json.JSONDecodeError."""
+    # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
+    data = json.loads(strip_fences(raw))
 
     source = "instagram" if "instagram.com" in url else "facebook"
 

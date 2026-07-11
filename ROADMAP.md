@@ -145,15 +145,21 @@ Featury, které promění pasivní sbírku míst v nástroj používaný přímo
 
 Nepřinese nové uživatele, ale zvedá konverzi těch, kteří už přišli.
 
-- [ ] **Základní testy** — aspoň pro čisté funkce: validace URL, parsování
+- [x] **Základní testy** — aspoň pro čisté funkce: validace URL, parsování
   Gemini odpovědi, dedup logika. `pytest`, bez nutnosti reálných API klíčů
   (mock).
-- [ ] **GitHub Actions CI** — spustit testy + `ruff` lint na každý push,
+  *(hotovo: 108 testů ve `tests/` — URL/příkazy/whitelist, parsování Gemini
+  i Claude odpovědí, dedup předfiltr, /hledej, místa poblíž, export
+  GeoJSON/GPX/KML, parsování řádků tabulky; `pip install -r
+  requirements-dev.txt && pytest`)*
+- [x] **GitHub Actions CI** — spustit testy + `ruff` lint na každý push,
   badge do README.
-- [ ] **Sekce „Známé limity" v README** — FB občas blokuje datacenter IP;
+  *(hotovo: `.github/workflows/ci.yml`, ruff konfigurace v `pyproject.toml`)*
+- [x] **Sekce „Známé limity" v README** — FB občas blokuje datacenter IP;
   popsat řešení přes cookies (`--cookies` v yt-dlp), rate limity Gemini
   free tieru, max. délku videa.
-- [ ] **CHANGELOG.md** — od prvního veřejného release vést stručný log změn.
+- [x] **CHANGELOG.md** — od prvního veřejného release vést stručný log změn.
+  *(založen; do prvního release se změny evidují pod „Nevydáno")*
 
 ---
 

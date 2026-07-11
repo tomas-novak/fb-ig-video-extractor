@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv() musí proběhnout před importem modulů, které čtou env při importu
+"main.py" = ["E402"]
+"backfill_places.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
