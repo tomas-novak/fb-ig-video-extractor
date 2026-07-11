@@ -23,10 +23,19 @@ _ENDPOINT = "https://places.googleapis.com/v1/places:searchText"
 _FIELDS = "places.id,places.displayName,places.formattedAddress,places.location"
 
 
-def maps_link(place_id: str = "", name: str = "") -> str:
-    """Odkaz na Google Maps – kanonický přes place_id, jinak hledání podle názvu."""
+def maps_link(place_id: str = "", name: str = "",
+              lat: float | None = None, lng: float | None = None) -> str:
+    """Odkaz na Google Maps – oficiální Maps URLs formát (funguje i v mobilní aplikaci).
+
+    Formát `?q=place_id:...` mobilní aplikace neumí (hledá ho jako text),
+    proto `api=1` + `query_place_id`. Parametr `query` je u query_place_id
+    povinný – přikládáme souřadnice, případně název.
+    """
     if place_id:
-        return f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+        query = f"{lat},{lng}" if lat is not None and lng is not None else name
+        if query:
+            return (f"https://www.google.com/maps/search/?api=1"
+                    f"&query={quote_plus(query)}&query_place_id={place_id}")
     if name:
         return f"https://www.google.com/maps/search/?api=1&query={quote_plus(name)}"
     return ""
@@ -64,12 +73,13 @@ def geocode(name: str, city: str = "") -> dict | None:
         pid = p.get("id") or ""
         if not pid or "latitude" not in loc:
             return None
+        lat, lng = float(loc["latitude"]), float(loc["longitude"])
         return {
             "place_id": pid,
-            "lat": float(loc["latitude"]),
-            "lng": float(loc["longitude"]),
+            "lat": lat,
+            "lng": lng,
             "address": p.get("formattedAddress", ""),
-            "maps_url": maps_link(pid),
+            "maps_url": maps_link(pid, lat=lat, lng=lng),
         }
     except Exception as e:
         # Geokódování nesmí shodit zpracování videa – jen zalogovat

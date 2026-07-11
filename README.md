@@ -27,7 +27,7 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 
    Moderní aquapark v Slaném s bazény pro děti i dospělé.
    Zábava pro celou rodinu.
-   🧭 https://www.google.com/maps/place/?q=place_id:...
+   🧭 https://www.google.com/maps/search/?api=1&query=50.23,14.09&query_place_id=...
    ```
 4. Místo se uloží do Google Sheets včetně přesných GPS souřadnic (Google
    Places), přepisu zvuku a odkazu na Google Maps

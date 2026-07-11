@@ -23,9 +23,25 @@ class TestDistanceKm:
 
 
 class TestMapsLink:
-    def test_place_id_wins(self):
-        url = maps_link(place_id="ChIJabc", name="Koupaliště")
-        assert url == "https://www.google.com/maps/place/?q=place_id:ChIJabc"
+    def test_place_id_with_coords(self):
+        url = maps_link(place_id="ChIJabc", lat=50.23, lng=14.09)
+        assert url == ("https://www.google.com/maps/search/?api=1"
+                       "&query=50.23%2C14.09&query_place_id=ChIJabc")
+
+    def test_place_id_with_name_only(self):
+        url = maps_link(place_id="ChIJabc", name="Koupaliště Slaný")
+        assert "query_place_id=ChIJabc" in url
+        assert "api=1" in url
+        assert " " not in url
+
+    def test_place_id_without_query_falls_back_to_empty(self):
+        # query_place_id bez query Google nepodporuje
+        assert maps_link(place_id="ChIJabc") == ""
+
+    def test_no_legacy_place_format(self):
+        # starý formát ?q=place_id: mobilní aplikace neumí otevřít
+        url = maps_link(place_id="ChIJabc", lat=50.0, lng=14.0)
+        assert "/maps/place/?q=place_id:" not in url
 
     def test_name_fallback_is_url_encoded(self):
         url = maps_link(name="Koupaliště Slaný")
