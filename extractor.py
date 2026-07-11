@@ -73,6 +73,23 @@ def _resolve_cookies() -> str | None:
     return None
 
 
+# Videa delší než limit se vůbec nestahují – bot je stavěný na krátká videa
+# (Reels, TikTok, Shorts) a u dlouhých by download i upload do Gemini byly
+# pomalé a drahé. 0 = bez limitu.
+MAX_VIDEO_MINUTES = int(os.getenv("MAX_VIDEO_MINUTES", "10"))
+
+
+def duration_error(info: dict) -> str | None:
+    """Hláška, když je video delší než MAX_VIDEO_MINUTES; jinak None.
+    Neznámá délka (live stream, chybějící metadata) projde – zachytí ji
+    až timeout zpracování v Gemini."""
+    duration = info.get("duration") or 0
+    if MAX_VIDEO_MINUTES and duration > MAX_VIDEO_MINUTES * 60:
+        return (f"video je příliš dlouhé ({duration / 60:.0f} min, "
+                f"limit {MAX_VIDEO_MINUTES} min)")
+    return None
+
+
 def download_media(url: str) -> tuple[str, dict]:
     """Stáhne video z FB/IG. Vrací (cesta_k_videu, info_dict).
     Stahujeme rovnou video (ne audio) – Gemini z něj přepíše zvuk i přečte text na obrazovce,
@@ -100,9 +117,17 @@ def download_media(url: str) -> tuple[str, dict]:
     if ffmpeg:
         ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg)
 
+    # match_filter přeskočí download dlouhého videa (metadata se ale vrátí,
+    # takže níže umíme vyhodit srozumitelnou chybu místo chybějícího souboru)
+    if MAX_VIDEO_MINUTES:
+        ydl_opts["match_filter"] = lambda info, *, incomplete=False: duration_error(info)
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
+            err = duration_error(info)
+            if err:
+                raise RuntimeError(err)
             media_path = ydl.prepare_filename(info)
         if not os.path.exists(media_path):
             files = os.listdir(tmp_dir)

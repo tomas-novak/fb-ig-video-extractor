@@ -128,9 +128,10 @@ Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
   založ issue s chybovou hláškou z odpovědi bota.
 - **Gemini free tier má rate limity.** Při rychlém posílání více videí za
   sebou může analýza dočasně selhat — chvíli počkej a pošli video znovu.
-- **Délka videa.** Bot je stavěný na krátká videa (Reels, do ~3 minut).
-  Delší videa se déle nahrávají a zpracování v Gemini může vypršet
-  (čeká se max. 2 minuty).
+- **Délka videa.** Bot je stavěný na krátká videa (Reels, TikTok, Shorts).
+  Videa delší než 10 minut odmítne ještě před stažením — limit jde změnit
+  proměnnou `MAX_VIDEO_MINUTES` (0 = bez limitu). I u povolených delších
+  videí může zpracování v Gemini vypršet (čeká se max. 2 minuty).
 - **Souřadnice bez `GOOGLE_MAPS_API_KEY` jsou jen odhad.** Gemini souřadnice
   odhaduje a může se splést i o kilometry; s Places API klíčem se místo
   dohledá přesně.

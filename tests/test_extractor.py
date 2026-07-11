@@ -1,5 +1,6 @@
-"""Testy rozpoznání zdroje z URL."""
-from extractor import extract_source
+"""Testy rozpoznání zdroje z URL a limitu délky videa."""
+import extractor
+from extractor import duration_error, extract_source
 
 
 class TestExtractSource:
@@ -29,3 +30,26 @@ class TestExtractSource:
 
     def test_unknown(self):
         assert extract_source("https://vimeo.com/12345") == "unknown"
+
+
+class TestDurationError:
+    def test_short_video_ok(self):
+        assert duration_error({"duration": 90}) is None
+
+    def test_at_limit_ok(self):
+        assert duration_error({"duration": extractor.MAX_VIDEO_MINUTES * 60}) is None
+
+    def test_too_long_rejected(self):
+        err = duration_error({"duration": 2 * 3600})
+        assert err is not None
+        assert "příliš dlouhé" in err
+        assert "120 min" in err
+
+    def test_unknown_duration_passes(self):
+        # live stream / chybějící metadata nesmí video zablokovat
+        assert duration_error({}) is None
+        assert duration_error({"duration": None}) is None
+
+    def test_limit_zero_disables_check(self, monkeypatch):
+        monkeypatch.setattr(extractor, "MAX_VIDEO_MINUTES", 0)
+        assert duration_error({"duration": 10 * 3600}) is None

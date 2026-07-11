@@ -156,6 +156,8 @@ def friendly_error(err: str) -> str:
     if "unsupported url" in low or "unsupported" in low:
         return ("🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram "
                 "videa/reels, TikTok a YouTube Shorts.")
+    if "příliš dlouhé" in low:
+        return f"⏱️ {err}. Bot je stavěný na krátká videa (Reels, TikTok, Shorts)."
     if "sign in to confirm" in low or "not a bot" in low:
         return ("🤖 YouTube blokuje stahování ze serveru (anti-bot ochrana). "
                 "Pomůže nastavit cookies přihlášeného účtu – viz Známé limity v README.")
