@@ -8,6 +8,7 @@ import os
 import anthropic
 
 from geocoder import distance_km as _distance_km
+from i18n import t
 
 MAX_DISTANCE_KM = 8.0  # souřadnice od Gemini jsou odhady, u stejného místa i ~5,5 km od sebe (Chvojenec)
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -58,7 +59,7 @@ Záznam B:
 
 Vzdálenost mezi souřadnicemi: {distance_km:.2f} km (pozor, souřadnice jsou odhady AI, mohou být nepřesné).
 
-Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění česky (max 1 věta)"}}"""
+Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění {t('dedup_reason_lang')} (max 1 věta)"}}"""
 
     msg = client.messages.create(
         model=CLAUDE_MODEL,
@@ -79,7 +80,7 @@ def parse_verdict(raw: str) -> dict:
         data = json.loads(raw)
         return {"same": bool(data.get("same")), "reason": str(data.get("reason", ""))}
     except (json.JSONDecodeError, AttributeError):
-        return {"same": False, "reason": f"neparsovatelná odpověď: {raw[:100]}"}
+        return {"same": False, "reason": t("dedup_reason_unparseable", raw=raw[:100])}
 
 
 def find_duplicates(places: list[dict]) -> list[dict]:
@@ -92,7 +93,7 @@ def find_duplicates(places: list[dict]) -> list[dict]:
             if pid_a == pid_b:
                 # Stejné Google místo – jistá shoda, Claude není potřeba
                 suggestions.append({"a": a, "b": b, "distance_km": d,
-                                    "reason": "Stejné místo podle Google Maps (place_id)."})
+                                    "reason": t("dedup_reason_place_id")})
             # různá place_id = různá místa -> přeskočit (bez dotazu na Claude)
             continue
         verdict = judge_pair(a, b, d)

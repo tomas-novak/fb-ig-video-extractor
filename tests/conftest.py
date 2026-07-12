@@ -11,7 +11,8 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST_TOKEN_NOT_REAL")
 # Izolace od lokálního .env (main.py volá load_dotenv(), který existující
 # proměnné nepřepisuje): tyto proměnné mají v main.py fail-closed validaci
 # při importu a vývojářova konfigurace by jinak mohla shodit celou test suite.
-for _var in ("TELEGRAM_ALLOWED_USERS", "MAP_TOKEN", "MAP_VIEW_TOKEN"):
+for _var in ("TELEGRAM_ALLOWED_USERS", "MAP_TOKEN", "MAP_VIEW_TOKEN",
+             "BOT_LANGUAGE", "CATEGORIES"):
     os.environ[_var] = ""
 # Limit délky videa čte extractor.py při importu – nevalidní hodnota
 # ve vývojářově .env by shodila import; testy počítají s výchozí 10.

@@ -1,12 +1,28 @@
-"""Statická HTML stránka s Leaflet mapou. Data si tahá z /data."""
+"""HTML stránka s Leaflet mapou. Data si tahá z /data.
+
+Šablona je statická; jazyk (BOT_LANGUAGE) a kategorie (CATEGORIES) se do ní
+dosazují při renderu přes render_map() – tokeny __MAP_*__.
+"""
+import json
+
+from i18n import CATEGORIES, LANG
+
+
+def render_map() -> str:
+    """Dosadí jazyk a kategorie z konfigurace do HTML šablony mapy."""
+    return (MAP_HTML
+            .replace("__MAP_LANG_ATTR__", LANG)
+            .replace("__MAP_LANG__", json.dumps(LANG))
+            .replace("__MAP_CATEGORIES__", json.dumps(CATEGORIES, ensure_ascii=False)))
+
 
 MAP_HTML = r"""<!DOCTYPE html>
-<html lang="cs">
+<html lang="__MAP_LANG_ATTR__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>Výlety – mapa</title>
+<title></title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   * { box-sizing: border-box; }
@@ -70,25 +86,25 @@ MAP_HTML = r"""<!DOCTYPE html>
 <body>
 <div id="panel">
   <div id="panel-head">
-    <span class="title">🗺️ Výlety <span class="count" id="count"></span></span>
-    <button id="toggle">☰ Filtry</button>
+    <span class="title"><span id="panel-title"></span> <span class="count" id="count"></span></span>
+    <button id="toggle"></button>
   </div>
   <div id="panel-body">
-    <div class="group-label">Zobrazení</div>
+    <div class="group-label" id="label-view"></div>
     <div class="filters">
-      <span class="chip visited-toggle" id="visited-toggle">✓ jen navštívené</span>
+      <span class="chip visited-toggle" id="visited-toggle"></span>
     </div>
-    <div class="group-label">Kategorie</div>
+    <div class="group-label" id="label-categories"></div>
     <div class="filters" id="cat-filters"></div>
     <div class="group-label group-head">
-      <span>Tagy</span>
+      <span id="label-tags"></span>
       <span>
-        <button class="mini" id="tags-all">vše</button>
-        <button class="mini" id="tags-none">nic</button>
+        <button class="mini" id="tags-all"></button>
+        <button class="mini" id="tags-none"></button>
       </span>
     </div>
     <div class="filters" id="tag-filters"></div>
-    <div class="group-label">Export</div>
+    <div class="group-label" id="label-export"></div>
     <div class="filters" id="export-links"></div>
   </div>
   <div id="status"></div>
@@ -97,16 +113,72 @@ MAP_HTML = r"""<!DOCTYPE html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Jazyk a kategorie dosazuje server z konfigurace (BOT_LANGUAGE, CATEGORIES)
+const LANG = __MAP_LANG__;
+const CATEGORIES = __MAP_CATEGORIES__;
+const FALLBACK_CATEGORY = CATEGORIES[CATEGORIES.length - 1];
+
+// Texty UI – jazyk vybírá LANG
+const TEXTS = {
+  cs: {
+    title: "Výlety – mapa", panelTitle: "🗺️ Výlety",
+    filters: "☰ Filtry", close: "✕ Zavřít",
+    view: "Zobrazení", categories: "Kategorie", tags: "Tagy", exportLabel: "Export",
+    all: "vše", none: "nic", visitedOnly: "✓ jen navštívené",
+    count: (shown, total) => "(" + shown + " / " + total + " míst)",
+    openVideo: "Otevřít video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openMaps: "Otevřít v Google Maps",
+    approx: "⚠️ přibližná poloha (odhad AI)",
+    visit: "✅ Už jsme navštívili", unvisit: "↩️ Vrátit mezi nenavštívené",
+    del: "🗑️ Smazat místo", delConfirm: "‼️ Opravdu úplně smazat? Klikni znovu",
+    badToken: "Neplatný token – otevři mapu přes odkaz s ?token=...",
+    badTokenLoad: "Neplatný nebo chybějící token – otevři mapu přes odkaz s ?token=...",
+    deleteFailed: "Smazání se nepovedlo: ", saveFailed: "Uložení se nepovedlo: ",
+    connError: "Chyba spojení: ", dataError: "Chyba: ", loadFailed: "Nepodařilo se načíst data: "
+  },
+  en: {
+    title: "Trips – map", panelTitle: "🗺️ Trips",
+    filters: "☰ Filters", close: "✕ Close",
+    view: "View", categories: "Categories", tags: "Tags", exportLabel: "Export",
+    all: "all", none: "none", visitedOnly: "✓ visited only",
+    count: (shown, total) => "(" + shown + " / " + total + " places)",
+    openVideo: "Open video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openMaps: "Open in Google Maps",
+    approx: "⚠️ approximate location (AI estimate)",
+    visit: "✅ Mark as visited", unvisit: "↩️ Mark as not visited",
+    del: "🗑️ Delete place", delConfirm: "‼️ Really delete? Click again",
+    badToken: "Invalid token – open the map via a link with ?token=...",
+    badTokenLoad: "Invalid or missing token – open the map via a link with ?token=...",
+    deleteFailed: "Delete failed: ", saveFailed: "Save failed: ",
+    connError: "Connection error: ", dataError: "Error: ", loadFailed: "Failed to load data: "
+  }
+};
+const T = TEXTS[LANG] || TEXTS.cs;
+
+// Statické texty stránky
+document.title = T.title;
+document.getElementById("panel-title").textContent = T.panelTitle;
+document.getElementById("label-view").textContent = T.view;
+document.getElementById("label-categories").textContent = T.categories;
+document.getElementById("label-tags").textContent = T.tags;
+document.getElementById("label-export").textContent = T.exportLabel;
+document.getElementById("tags-all").textContent = T.all;
+document.getElementById("tags-none").textContent = T.none;
+document.getElementById("visited-toggle").textContent = T.visitedOnly;
+
 // Token z URL mapy (/map?token=...) se předává všem datovým požadavkům
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
 function withToken(path){ return TOKEN ? path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : path; }
 
-const COLORS = {
-  "koupání": "#2196f3", "turistika": "#4caf50", "jídlo": "#ff9800",
-  "kultura": "#9c27b0", "příroda": "#009688", "sport": "#f44336",
-  "zábava": "#e91e63", "hotel": "#795548", "jiné": "#607d8b"
-};
-function colorFor(cat){ return COLORS[cat] || COLORS["jiné"]; }
+// Barvy se kategoriím přidělují podle pořadí v konfiguraci; výchozí česká
+// sada tak dostane stejné barvy jako dřív. Neznámá kategorie (starší data
+// po změně CATEGORIES) dostane šedou.
+const PALETTE = ["#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688",
+                 "#f44336", "#e91e63", "#795548", "#607d8b"];
+const GREY = "#607d8b";
+const COLORS = {};
+CATEGORIES.forEach((cat, i) => { COLORS[cat] = PALETTE[i % PALETTE.length]; });
+function colorFor(cat){ return COLORS[cat] || GREY; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 function parseTags(s){ return (s||"").split(",").map(t => t.trim()).filter(Boolean); }
 
@@ -115,8 +187,9 @@ const body = document.getElementById("panel-body");
 const toggleBtn = document.getElementById("toggle");
 function setOpen(open){
   body.classList.toggle("open", open);
-  toggleBtn.textContent = open ? "✕ Zavřít" : "☰ Filtry";
+  toggleBtn.textContent = open ? T.close : T.filters;
 }
+setOpen(false);
 toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.classList.contains("open")); });
 
 const map = L.map("map").setView([49.8, 15.5], 7);
@@ -151,7 +224,7 @@ function applyFilters(){
     if(vis){ if(!map.hasLayer(item.marker)) item.marker.addTo(map); shown++; }
     else   { if(map.hasLayer(item.marker)) map.removeLayer(item.marker); }
   });
-  document.getElementById("count").textContent = "(" + shown + " / " + total + " míst)";
+  document.getElementById("count").textContent = T.count(shown, total);
 }
 
 function buildPopup(key){
@@ -165,22 +238,22 @@ function buildPopup(key){
   if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
   group.forEach((p, i) => {
     if(p.url){
-      const label = group.length > 1 ? ("Video " + (i+1) + " (" + esc(p.date||"") + ")") : "Otevřít video";
+      const label = group.length > 1 ? T.videoN(i+1, esc(p.date||"")) : T.openVideo;
       html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
     }
   });
   const mapsUrl = rep.maps_url || ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rep.location_name));
-  html += '<div class="popup-link">🧭 <a href="'+esc(mapsUrl)+'" target="_blank" rel="noopener">Otevřít v Google Maps</a></div>';
+  html += '<div class="popup-link">🧭 <a href="'+esc(mapsUrl)+'" target="_blank" rel="noopener">'+T.openMaps+'</a></div>';
   if(rep.geo_source === "gemini"){
-    html += '<div class="popup-tags">⚠️ přibližná poloha (odhad AI)</div>';
+    html += '<div class="popup-tags">'+T.approx+'</div>';
   }
   if(CAN_EDIT){
     if(item.visited){
-      html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">↩️ Vrátit mezi nenavštívené</button>';
+      html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false, this)">'+T.unvisit+'</button>';
     } else {
-      html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">✅ Už jsme navštívili</button>';
+      html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true, this)">'+T.visit+'</button>';
     }
-    html += '<button class="del-btn" onclick="deletePlace(\''+key+'\', this)">🗑️ Smazat místo</button>';
+    html += '<button class="del-btn" onclick="deletePlace(\''+key+'\', this)">'+T.del+'</button>';
   }
   return html;
 }
@@ -193,12 +266,12 @@ window.deletePlace = function(key, btn){
   if(!btn.dataset.armed){
     btn.dataset.armed = "1";
     btn.classList.add("armed");
-    btn.textContent = "‼️ Opravdu úplně smazat? Klikni znovu";
+    btn.textContent = T.delConfirm;
     setTimeout(() => {
       if(btn.dataset.armed){
         delete btn.dataset.armed;
         btn.classList.remove("armed");
-        btn.textContent = "🗑️ Smazat místo";
+        btn.textContent = T.del;
       }
     }, 5000);
     return;
@@ -210,17 +283,17 @@ window.deletePlace = function(key, btn){
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows}),
   }).then(r => {
-    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    if(r.status === 403) throw new Error(T.badToken);
     return r.json();
   }).then(res => {
     if(res.ok){
       // Čísla řádků se mazáním posunula → načíst mapu znovu s čerstvými daty
       location.reload();
     } else {
-      alert("Smazání se nepovedlo: " + (res.error || "?"));
+      alert(T.deleteFailed + (res.error || "?"));
       btn.disabled = false;
     }
-  }).catch(e => { alert("Chyba spojení: " + e); btn.disabled = false; });
+  }).catch(e => { alert(T.connError + e); btn.disabled = false; });
 };
 
 window.setVisited = function(key, flag, btn){
@@ -233,7 +306,7 @@ window.setVisited = function(key, flag, btn){
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({rows: rows, visited: flag}),
   }).then(r => {
-    if(r.status === 403) throw new Error("Neplatný token – otevři mapu přes odkaz s ?token=...");
+    if(r.status === 403) throw new Error(T.badToken);
     return r.json();
   }).then(res => {
     if(res.ok){
@@ -243,16 +316,18 @@ window.setVisited = function(key, flag, btn){
       item.marker.closePopup();
       applyFilters();
     } else {
-      alert("Uložení se nepovedlo: " + (res.error || "?"));
+      alert(T.saveFailed + (res.error || "?"));
       btn.disabled = false;
     }
-  }).catch(e => { alert("Chyba spojení: " + e); btn.disabled = false; });
+  }).catch(e => { alert(T.connError + e); btn.disabled = false; });
 };
 
 function buildCatFilters(){
   const box = document.getElementById("cat-filters");
   box.innerHTML = "";
-  Object.keys(activeCat).sort().forEach(cat => {
+  // Pořadí chipů podle konfigurace; kategorie mimo ni (starší data) na konec
+  const order = cat => { const i = CATEGORIES.indexOf(cat); return i === -1 ? CATEGORIES.length : i; };
+  Object.keys(activeCat).sort((a,b) => order(a) - order(b) || a.localeCompare(b, LANG)).forEach(cat => {
     const chip = document.createElement("span");
     chip.className = "chip" + (activeCat[cat] ? "" : " off");
     chip.innerHTML = '<span class="dot" style="background:'+colorFor(cat)+'"></span>'+esc(cat);
@@ -264,7 +339,7 @@ function buildCatFilters(){
 function buildTagFilters(){
   const box = document.getElementById("tag-filters");
   box.innerHTML = "";
-  Object.keys(activeTag).sort((a,b)=>a.localeCompare(b,'cs')).forEach(tag => {
+  Object.keys(activeTag).sort((a,b)=>a.localeCompare(b,LANG)).forEach(tag => {
     const chip = document.createElement("span");
     chip.className = "chip tag" + (activeTag[tag] ? " on" : " off");
     chip.textContent = "#" + tag;
@@ -299,11 +374,11 @@ visitedChip.onclick = () => {
 };
 
 fetch(withToken("/data")).then(r => {
-  if(r.status === 403) throw new Error("Neplatný nebo chybějící token – otevři mapu přes odkaz s ?token=...");
+  if(r.status === 403) throw new Error(T.badTokenLoad);
   CAN_EDIT = r.headers.get("X-Can-Edit") !== "0";
   return r.json();
 }).then(places => {
-  if(places.error){ document.getElementById("status").textContent = "Chyba: " + places.error; return; }
+  if(places.error){ document.getElementById("status").textContent = T.dataError + places.error; return; }
   const bounds = [];
 
   // Seskupení podle group_id (sloučená místa = jeden pin s více videi)
@@ -315,7 +390,7 @@ fetch(withToken("/data")).then(r => {
 
   Object.entries(groups).forEach(([key, group]) => {
     const rep = group[0];
-    const cat = rep.category || "jiné";
+    const cat = rep.category || FALLBACK_CATEGORY;
     const tagSet = new Set();
     group.forEach(p => parseTags(p.tags).forEach(t => tagSet.add(t)));
     const tags = [...tagSet];
@@ -346,7 +421,7 @@ fetch(withToken("/data")).then(r => {
 
   if(bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
 }).catch(e => {
-  document.getElementById("status").textContent = "Nepodařilo se načíst data: " + e;
+  document.getElementById("status").textContent = T.loadFailed + e;
 });
 </script>
 </body>

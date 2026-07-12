@@ -3,6 +3,8 @@ import shutil
 import tempfile
 import yt_dlp
 
+from i18n import t
+
 
 FFMPEG_LOCATIONS = [
     # Railway (nixpacks)
@@ -85,8 +87,7 @@ def duration_error(info: dict) -> str | None:
     až timeout zpracování v Gemini."""
     duration = info.get("duration") or 0
     if MAX_VIDEO_MINUTES and duration > MAX_VIDEO_MINUTES * 60:
-        return (f"video je příliš dlouhé ({duration / 60:.0f} min, "
-                f"limit {MAX_VIDEO_MINUTES} min)")
+        return t("err_video_too_long", minutes=duration / 60, limit=MAX_VIDEO_MINUTES)
     return None
 
 

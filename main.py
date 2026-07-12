@@ -13,11 +13,12 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
+from i18n import t
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
 from dedup import find_duplicates
-from map_page import MAP_HTML
+from map_page import render_map
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -44,11 +45,12 @@ def is_authorized(user_id: int | None) -> bool:
     return not ALLOWED_USERS or user_id in ALLOWED_USERS
 
 
-def is_command(text: str, cmd: str) -> bool:
-    """Přesná shoda příkazu: '/id' i '/id@NazevBota', ale ne '/idea'."""
+def is_command(text: str, *cmds: str) -> bool:
+    """Přesná shoda příkazu: '/id' i '/id@NazevBota', ale ne '/idea'.
+    Více názvů = aliasy (české a anglické příkazy fungují vždy oba)."""
     parts = text.split()
     first = parts[0].lower() if parts else ""
-    return first == cmd or first.startswith(cmd + "@")
+    return any(first == cmd or first.startswith(cmd + "@") for cmd in cmds)
 
 
 # Token chránící mapová data (/data, /visited, /delete). Prázdné = mapa veřejná.
@@ -147,24 +149,19 @@ def friendly_error(err: str) -> str:
     """Přeloží technickou chybu na srozumitelnou hlášku pro uživatele."""
     low = err.lower()
     if "no video formats" in low or "no video" in low:
-        return ("📷 Tohle vypadá jako fotka nebo série fotek (carousel), ne video. "
-                "Pošli mi prosím odkaz na video nebo reel.")
+        return t("err_photo")
     if "empty media response" in low or "login required" in low or "rate-limit" in low \
             or "unable to extract" in low or "checkpoint" in low or "challenge" in low:
-        return ("🔒 Nepodařilo se dostat k obsahu (Instagram nejspíš vyžaduje přihlášení "
-                "nebo vypršely cookies). U Facebook odkazů to funguje vždy.")
+        return t("err_login")
     if "unsupported url" in low or "unsupported" in low:
-        return ("🤔 Tenhle odkaz neumím zpracovat. Podporuju Facebook a Instagram "
-                "videa/reels, TikTok a YouTube Shorts.")
-    if "příliš dlouhé" in low:
-        return f"⏱️ {err}. Bot je stavěný na krátká videa (Reels, TikTok, Shorts)."
+        return t("err_unsupported")
+    if "příliš dlouhé" in low or "too long" in low:
+        return t("err_too_long", err=err)
     if "sign in to confirm" in low or "not a bot" in low:
-        return ("🤖 YouTube blokuje stahování ze serveru (anti-bot ochrana). "
-                "Pomůže nastavit cookies přihlášeného účtu – viz Známé limity v README.")
+        return t("err_youtube_bot")
     if "audio codec" in low or "ffprobe" in low or "requested format" in low:
-        return ("🔇 Z videa se nepodařilo získat zvukovou stopu (možná nemá zvuk). "
-                "Zkus prosím jiné video.")
-    return f"❌ Něco se nepovedlo: {err[:200]}"
+        return t("err_no_audio")
+    return t("err_generic", err=err[:200])
 
 
 @app.post("/webhook")
@@ -199,13 +196,12 @@ async def webhook(request: Request):
 
     # /id funguje pro každého – potřebné pro prvotní nastavení whitelistu
     if is_command(text, "/id") and user_id is not None:
-        await send_message(chat_id, f"🆔 Tvoje Telegram user ID: {user_id}")
+        await send_message(chat_id, t("id_reply", user_id=user_id))
         return {"ok": True}
 
     if not is_authorized(user_id):
         if user_id is not None:
-            await send_message(chat_id, "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
-                                        f"svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.")
+            await send_message(chat_id, t("private_bot", user_id=user_id))
         # channel_post bez odesílatele při zapnutém whitelistu tiše ignorovat
         return {"ok": True}
 
@@ -219,10 +215,10 @@ async def webhook(request: Request):
         return {"ok": True}
 
     # Příkaz: fulltextové hledání v uložených místech
-    if is_command(text, "/hledej"):
+    if is_command(text, "/hledej", "/search"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
-            await send_message(chat_id, "Použití: /hledej <text>\nnapř. /hledej tobogán")
+            await send_message(chat_id, t("search_usage"))
             return {"ok": True}
         task = asyncio.create_task(handle_search(chat_id, parts[1].strip()))
         _background_tasks.add(task)
@@ -230,19 +226,15 @@ async def webhook(request: Request):
         return {"ok": True}
 
     # Příkaz: kontrola duplicitních míst
-    if is_command(text, "/zkontroluj"):
-        await send_message(chat_id, "🔍 Kontroluji duplicitní místa, chvíli počkej...")
+    if is_command(text, "/zkontroluj", "/dedup"):
+        await send_message(chat_id, t("dedup_started"))
         task = asyncio.create_task(run_dedup_check(chat_id))
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
         return {"ok": True}
 
     if not is_valid_url(text):
-        await send_message(chat_id, "Pošli mi URL videa – Facebook/Instagram Reels, "
-                                    "TikTok nebo YouTube Shorts.\n"
-                                    "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n"
-                                    "/hledej <text> – hledání v uložených místech\n"
-                                    "/zkontroluj – kontrola duplicitních míst")
+        await send_message(chat_id, t("help"))
         return {"ok": True}
 
     # Zpracování v background tasku aby webhook rychle odpověděl.
@@ -260,11 +252,11 @@ async def process_video(chat_id: int, url: str) -> None:
         # 1) Rychlá kontrola duplicity podle URL (před stahováním, zdarma)
         dup = await asyncio.to_thread(find_duplicate, url)
         if dup:
-            await send_message(chat_id, f"⚠️ Tohle video už máš uložené:\n"
-                                        f"📍 {dup['location_name']} ({dup['date']})")
+            await send_message(chat_id, t("dup_saved", name=dup["location_name"],
+                                          date=dup["date"]))
             return
 
-        await send_message(chat_id, "⏳ Zpracovávám video, chvíli počkej...")
+        await send_message(chat_id, t("processing"))
 
         # 2) Stažení videa
         media_path, yt_info = await asyncio.to_thread(download_media, url)
@@ -274,8 +266,8 @@ async def process_video(chat_id: int, url: str) -> None:
         if video_id:
             dup = await asyncio.to_thread(find_duplicate, "", video_id)
             if dup:
-                await send_message(chat_id, f"⚠️ Tohle video už máš uložené (pod jiným odkazem):\n"
-                                            f"📍 {dup['location_name']} ({dup['date']})")
+                await send_message(chat_id, t("dup_saved_other", name=dup["location_name"],
+                                              date=dup["date"]))
                 return
 
         # 4) Analýza přes Gemini
@@ -303,21 +295,16 @@ async def process_video(chat_id: int, url: str) -> None:
                 if not match["group_id"]:
                     await asyncio.to_thread(set_group_ids, {match["row"]: group})
                 metadata.group_id = group
-                group_note = f"\n🔗 Přidáno k existujícímu místu „{match['location_name']}“."
+                group_note = t("group_note", name=match["location_name"])
 
         # 7) Uložení do Sheets
         await asyncio.to_thread(append_row, metadata)
 
         # 8) Odpověď uživateli
-        precision = "" if metadata.geo_source == "places" else "\n⚠️ Poloha je jen odhad (místo se nepodařilo najít na Google Maps)."
-        reply = (
-            f"✅ Uloženo!\n"
-            f"📍 {metadata.location_name}\n"
-            f"🏷️ {metadata.category} | {metadata.tags}\n\n"
-            f"{metadata.summary}\n"
-            f"🧭 {metadata.maps_url}"
-            f"{precision}{group_note}"
-        )
+        precision = "" if metadata.geo_source == "places" else t("precision_note")
+        reply = t("saved", name=metadata.location_name, category=metadata.category,
+                  tags=metadata.tags, summary=metadata.summary,
+                  maps_url=metadata.maps_url, precision=precision, group_note=group_note)
         await send_message(chat_id, reply)
 
     except Exception as e:
@@ -375,9 +362,9 @@ async def handle_search(chat_id: int, query: str) -> None:
         places = await asyncio.to_thread(read_rows)
         hits = search_places(places, query)
         if not hits:
-            await send_message(chat_id, f"🔍 Pro „{query}“ jsem nic nenašel.")
+            await send_message(chat_id, t("search_none", query=query))
             return
-        lines = [f"🔍 Nalezeno pro „{query}“:", ""]
+        lines = [t("search_header", query=query), ""]
         for p in hits:
             mark = " ✅" if p["visited"] else ""
             url = p["maps_url"] or maps_link(name=p["location_name"])
@@ -385,7 +372,7 @@ async def handle_search(chat_id: int, query: str) -> None:
             lines.append(f"  🧭 {url}")
         await send_message(chat_id, "\n".join(lines))
     except Exception as e:
-        await send_message(chat_id, f"❌ Hledání selhalo: {type(e).__name__}: {e}")
+        await send_message(chat_id, t("search_failed", error=f"{type(e).__name__}: {e}"))
 
 
 def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[float, dict]]:
@@ -414,18 +401,18 @@ async def handle_location(chat_id: int, lat: float, lng: float) -> None:
         places = await asyncio.to_thread(read_rows)
         ranked = nearest_places(places, lat, lng)
         if not ranked:
-            await send_message(chat_id, "Nemáš uložená žádná nenavštívená místa.")
+            await send_message(chat_id, t("nearby_none_saved"))
             return
 
         nearby = [(d, p) for d, p in ranked if d <= NEARBY_RADIUS_KM][:NEARBY_LIMIT]
         if not nearby:
             d, p = ranked[0]
             url = p["maps_url"] or maps_link(name=p["location_name"])
-            await send_message(chat_id, f"V okruhu {NEARBY_RADIUS_KM} km nemáš nic uloženo. "
-                                        f"Nejblíž je:\n📍 {p['location_name']} ({d:.0f} km)\n🧭 {url}")
+            await send_message(chat_id, t("nearby_nothing", radius=NEARBY_RADIUS_KM,
+                                          name=p["location_name"], dist=d, url=url))
             return
 
-        lines = [f"📍 Nejbližší uložená místa ({len(nearby)}):", ""]
+        lines = [t("nearby_header", count=len(nearby)), ""]
         for d, p in nearby:
             url = p["maps_url"] or maps_link(name=p["location_name"])
             dist = f"{d:.1f} km" if d < 10 else f"{d:.0f} km"
@@ -433,7 +420,7 @@ async def handle_location(chat_id: int, lat: float, lng: float) -> None:
             lines.append(f"  🧭 {url}")
         await send_message(chat_id, "\n".join(lines))
     except Exception as e:
-        await send_message(chat_id, f"❌ Hledání selhalo: {type(e).__name__}: {e}")
+        await send_message(chat_id, t("search_failed", error=f"{type(e).__name__}: {e}"))
 
 
 async def run_dedup_check(chat_id: int) -> None:
@@ -443,27 +430,24 @@ async def run_dedup_check(chat_id: int) -> None:
         suggestions = await asyncio.to_thread(find_duplicates, places)
 
         if not suggestions:
-            await send_message(chat_id, "✅ Žádné duplicitní místo jsem nenašel.")
+            await send_message(chat_id, t("dedup_none"))
             return
 
         for s in suggestions:
             a, b = s["a"], s["b"]
-            text = (
-                f"🤔 Vypadá to na stejné místo:\n\n"
-                f"1️⃣ {a['location_name']} ({a['date']})\n"
-                f"2️⃣ {b['location_name']} ({b['date']})\n\n"
-                f"📏 Vzdálenost: {s['distance_km']:.1f} km\n"
-                f"💡 {s['reason']}"
-            )
+            text = t("dedup_suggestion",
+                     a_name=a["location_name"], a_date=a["date"],
+                     b_name=b["location_name"], b_date=b["date"],
+                     distance=s["distance_km"], reason=s["reason"])
             keyboard = {"inline_keyboard": [[
-                {"text": "🔗 Sloučit", "callback_data": f"merge:{a['row']}:{b['row']}"},
-                {"text": "✋ Ponechat zvlášť", "callback_data": "keep"},
+                {"text": t("btn_merge"), "callback_data": f"merge:{a['row']}:{b['row']}"},
+                {"text": t("btn_keep"), "callback_data": "keep"},
             ]]}
             await send_message(chat_id, text, reply_markup=keyboard)
 
-        await send_message(chat_id, f"Hotovo – {len(suggestions)} návrh(ů) výše. Rozhodni tlačítky.")
+        await send_message(chat_id, t("dedup_done", count=len(suggestions)))
     except Exception as e:
-        await send_message(chat_id, f"❌ Kontrola selhala: {type(e).__name__}: {e}")
+        await send_message(chat_id, t("dedup_failed", error=f"{type(e).__name__}: {e}"))
 
 
 async def handle_callback(callback: dict) -> None:
@@ -474,8 +458,8 @@ async def handle_callback(callback: dict) -> None:
 
     try:
         if data == "keep":
-            await answer_callback(callback_id, "Ponecháno zvlášť")
-            await send_message(chat_id, "✋ OK, nechávám jako dvě různá místa.")
+            await answer_callback(callback_id, t("cb_kept"))
+            await send_message(chat_id, t("kept_msg"))
             return
 
         if data.startswith("merge:"):
@@ -487,20 +471,21 @@ async def handle_callback(callback: dict) -> None:
             by_row = {p["row"]: p for p in places}
             a, b = by_row.get(row_a), by_row.get(row_b)
             if not a or not b:
-                await answer_callback(callback_id, "Řádek už neexistuje")
-                await send_message(chat_id, "⚠️ Některý z řádků už v tabulce není (možná smazán). Spusť /zkontroluj znovu.")
+                await answer_callback(callback_id, t("cb_row_gone"))
+                await send_message(chat_id, t("row_gone_msg"))
                 return
 
             group = a["group_id"] or b["group_id"] or new_group_id()
             await asyncio.to_thread(set_group_ids, {row_a: group, row_b: group})
-            await answer_callback(callback_id, "Sloučeno")
-            await send_message(chat_id, f"🔗 Sloučeno: „{a['location_name']}“ + „{b['location_name']}“ se teď na mapě zobrazí jako jedno místo.")
+            await answer_callback(callback_id, t("cb_merged"))
+            await send_message(chat_id, t("merged_msg", a=a["location_name"],
+                                          b=b["location_name"]))
             return
 
         await answer_callback(callback_id)
     except Exception as e:
-        await answer_callback(callback_id, "Chyba")
-        await send_message(chat_id, f"❌ Sloučení selhalo: {type(e).__name__}: {e}")
+        await answer_callback(callback_id, t("cb_error"))
+        await send_message(chat_id, t("merge_failed", error=f"{type(e).__name__}: {e}"))
 
 
 @app.get("/health")
@@ -591,7 +576,7 @@ def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
             f'    </Placemark>' for p in items)
         content = ('<?xml version="1.0" encoding="UTF-8"?>\n'
                    '<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n'
-                   f'    <name>Výlety</name>\n{marks}\n  </Document>\n</kml>\n')
+                   f'    <name>{escape(t("export_doc_name"))}</name>\n{marks}\n  </Document>\n</kml>\n')
         return content, "application/vnd.google-earth.kml+xml", "kml"
 
     raise HTTPException(status_code=400, detail="format must be geojson, gpx or kml")
@@ -610,7 +595,7 @@ async def export(request: Request, format: str = "geojson"):
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
     from fastapi.responses import Response
     return Response(content, media_type=media_type, headers={
-        "Content-Disposition": f'attachment; filename="vylety.{ext}"'})
+        "Content-Disposition": f'attachment; filename="{t("export_filename")}.{ext}"'})
 
 
 @app.post("/visited")
@@ -646,7 +631,7 @@ async def delete_place(request: Request):
 
 @app.get("/map", response_class=HTMLResponse)
 async def map_view():
-    return HTMLResponse(MAP_HTML)
+    return HTMLResponse(render_map())
 
 
 # Registrace webhooku (volá se automaticky při startu, ručně přes --set-webhook)
