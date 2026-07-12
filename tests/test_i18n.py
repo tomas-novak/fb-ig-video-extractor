@@ -1,8 +1,9 @@
 """Testy jazyka bota (BOT_LANGUAGE) a konfigurovatelných kategorií (CATEGORIES)."""
 import pytest
 
-from i18n import (DEFAULT_CATEGORIES, MESSAGES, _parse_categories,
-                  _parse_language, t)
+from i18n import (BOT_COMMANDS, DEFAULT_CATEGORIES, MESSAGES, _parse_categories,
+                  _parse_language, command_aliases, command_name, help_text,
+                  menu_commands, t)
 
 
 class TestParseLanguage:
@@ -57,6 +58,52 @@ class TestMessages:
 
     def test_t_dosazuje_parametry(self):
         assert "42" in t("id_reply", user_id=42)
+
+
+class TestBotCommands:
+    def test_aliasy_obsahuji_oba_jazyky(self):
+        assert command_aliases("search") == ("/hledej", "/search")
+        assert command_aliases("dedup") == ("/zkontroluj", "/dedup")
+
+    def test_stejny_nazev_v_obou_jazycich_se_neduplikuje(self):
+        assert command_aliases("id") == ("/id",)
+
+    def test_extra_aliasy_napovedy(self):
+        aliases = command_aliases("help")
+        assert "/help" in aliases and "/start" in aliases and "/napoveda" in aliases
+
+    def test_neznamy_klic_spadne(self):
+        with pytest.raises(KeyError, match="unknown bot command"):
+            command_aliases("neexistuje")
+
+    def test_menu_commands_cesky(self):
+        # conftest nastavuje BOT_LANGUAGE=cs
+        menu = menu_commands()
+        assert {"command", "description"} == set(menu[0])
+        assert [m["command"] for m in menu] == ["hledej", "zkontroluj", "id", "help"]
+
+    def test_help_text_obsahuje_vsechny_prikazy_z_registru(self):
+        text = help_text()
+        assert "{commands}" not in text
+        for cmd in BOT_COMMANDS:
+            assert f"/{cmd['name']['cs']}" in text
+        assert "/hledej <text>" in text
+
+    def test_command_name_podle_jazyka(self):
+        # conftest nastavuje BOT_LANGUAGE=cs
+        assert command_name("search") == "/hledej"
+        assert command_name("dedup") == "/zkontroluj"
+
+    def test_zpravy_dosazuji_nazev_prikazu_z_registru(self):
+        assert "/hledej tobogán" in t("search_usage", cmd=command_name("search"))
+        assert "Spusť /zkontroluj znovu" in t("row_gone_msg", cmd=command_name("dedup"))
+
+    def test_help_text_anglicky(self, monkeypatch):
+        import i18n
+        monkeypatch.setattr(i18n, "LANG", "en")
+        text = help_text()
+        assert "/search <text>" in text and "/dedup" in text
+        assert [m["command"] for m in menu_commands()] == ["search", "dedup", "id", "help"]
 
 
 class TestMapRender:

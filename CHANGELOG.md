@@ -7,6 +7,9 @@ a při prvním veřejném release se překlopí do verze.
 ## Nevydáno
 
 ### Přidáno
+- Příkaz `/help` (aliasy `/start`, `/napoveda`) — vypíše všechny příkazy
+  bota a co dělají. Příkazy se navíc při startu registrují do menu
+  Telegramu (`setMyCommands`), takže se nabízejí po napsání `/` v chatu.
 - Jazyk bota do konfigurace: `BOT_LANGUAGE` (`en` výchozí / `cs`) řídí odpovědi bota,
   texty mapy, jazyk Gemini shrnutí/tagů i zdůvodnění duplicit (`i18n.py`).
   Přepis zvuku zůstává v původním jazyce videa. Anglické aliasy příkazů

@@ -114,6 +114,10 @@ Detailní technická dokumentace: [CLAUDE.md](CLAUDE.md) · plán featur:
 - `/hledej <text>` (alias `/search`) — hledání v uložených místech
 - `/zkontroluj` (alias `/dedup`) — kontrola duplicitních míst
 - `/id` — tvoje Telegram user ID (pro nastavení whitelistu)
+- `/help` (aliasy `/start`, `/napoveda`) — vypíše všechny příkazy
+
+Příkazy se také registrují do menu Telegramu (nabídka po napsání `/`
+v chatu), v jazyce podle `BOT_LANGUAGE`.
 
 ## Vývoj a testy
 

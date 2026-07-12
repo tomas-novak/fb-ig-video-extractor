@@ -117,6 +117,10 @@ Detailed technical docs: [CLAUDE.md](CLAUDE.md) · feature plan:
 - `/search <text>` (alias `/hledej`) — search your saved places
 - `/dedup` (alias `/zkontroluj`) — check for duplicate places
 - `/id` — your Telegram user ID (for setting up the whitelist)
+- `/help` (aliases `/start`, `/napoveda`) — list all commands
+
+Commands are also registered in the Telegram command menu (shown after
+typing `/` in the chat), in the language set by `BOT_LANGUAGE`.
 
 ## Development and tests
 

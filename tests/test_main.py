@@ -1,9 +1,11 @@
 """Testy čistých funkcí z main.py: validace URL, příkazy, whitelist, tokeny."""
+import asyncio
+
 import pytest
 
 import main
 from main import (_parse_allowed_users, _token_matches, friendly_error,
-                  is_command, is_valid_url)
+                  is_command, is_valid_url, telegram_call)
 
 
 class TestIsValidUrl:
@@ -45,6 +47,46 @@ class TestIsCommand:
 
     def test_empty_text(self):
         assert not is_command("", "/id")
+
+
+class _FakeResponse:
+    def __init__(self, body, status_code=200):
+        self._body = body
+        self.status_code = status_code
+
+    def json(self):
+        if not isinstance(self._body, dict):
+            raise ValueError("not JSON")
+        return self._body
+
+
+class _FakeClient:
+    def __init__(self, response):
+        self._response = response
+
+    async def post(self, url, json=None):
+        return self._response
+
+
+class TestTelegramCall:
+    def _call(self, monkeypatch, response):
+        monkeypatch.setattr(main, "_get_telegram_client",
+                            lambda: _FakeClient(response))
+        return asyncio.run(telegram_call("sendMessage", {}))
+
+    def test_nejson_odpoved_neshodi_handler(self, monkeypatch):
+        # HTML 502 od proxy dřív spadl na r.json() -> 500 -> retry od Telegramu
+        result = self._call(monkeypatch, _FakeResponse("<html>502</html>", 502))
+        assert result["ok"] is False
+        assert "502" in result["error"]
+
+    def test_ok_false_se_vrati_volajicimu(self, monkeypatch):
+        result = self._call(monkeypatch, _FakeResponse({"ok": False, "error_code": 429}))
+        assert result["error_code"] == 429
+
+    def test_uspesna_odpoved(self, monkeypatch):
+        result = self._call(monkeypatch, _FakeResponse({"ok": True, "result": {}}))
+        assert result["ok"] is True
 
 
 class TestAllowedUsers:

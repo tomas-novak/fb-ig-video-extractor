@@ -76,13 +76,15 @@ MESSAGES = {
         "id_reply": "🆔 Tvoje Telegram user ID: {user_id}",
         "private_bot": "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
                        "svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.",
-        "search_usage": "Použití: /hledej <text>\nnapř. /hledej tobogán",
+        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        "search_usage": "Použití: {cmd} <text>\nnapř. {cmd} tobogán",
         "dedup_started": "🔍 Kontroluji duplicitní místa, chvíli počkej...",
-        "help": "Pošli mi URL videa – Facebook/Instagram Reels, "
-                "TikTok nebo YouTube Shorts.\n"
-                "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n"
-                "/hledej <text> – hledání v uložených místech\n"
-                "/zkontroluj – kontrola duplicitních míst",
+        # {commands} dosazuje help_text() z registru BOT_COMMANDS
+        "help": "📖 Co umím:\n\n"
+                "🎬 Pošli mi URL videa (Facebook/Instagram Reels, TikTok, "
+                "YouTube Shorts) – vytáhnu z něj místo a uložím ho do tabulky.\n"
+                "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n\n"
+                "Příkazy:\n{commands}",
 
         # Zpracování videa
         "dup_saved": "⚠️ Tohle video už máš uložené:\n📍 {name} ({date})",
@@ -118,7 +120,7 @@ MESSAGES = {
         "kept_msg": "✋ OK, nechávám jako dvě různá místa.",
         "cb_row_gone": "Řádek už neexistuje",
         "row_gone_msg": "⚠️ Některý z řádků už v tabulce není (možná smazán). "
-                        "Spusť /zkontroluj znovu.",
+                        "Spusť {cmd} znovu.",
         "cb_merged": "Sloučeno",
         "merged_msg": "🔗 Sloučeno: „{a}“ + „{b}“ se teď na mapě zobrazí jako jedno místo.",
         "cb_error": "Chyba",
@@ -156,13 +158,15 @@ MESSAGES = {
         "id_reply": "🆔 Your Telegram user ID: {user_id}",
         "private_bot": "⛔ This bot is private. If it's yours, add your "
                        "ID ({user_id}) to TELEGRAM_ALLOWED_USERS.",
-        "search_usage": "Usage: /search <text>\ne.g. /search waterslide",
+        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        "search_usage": "Usage: {cmd} <text>\ne.g. {cmd} waterslide",
         "dedup_started": "🔍 Checking for duplicate places, hang on...",
-        "help": "Send me a video URL – Facebook/Instagram Reels, "
-                "TikTok or YouTube Shorts.\n"
-                "📎 Send me your location and I'll find saved places nearby.\n"
-                "/search <text> – search your saved places\n"
-                "/dedup – check for duplicate places",
+        # {commands} dosazuje help_text() z registru BOT_COMMANDS
+        "help": "📖 What I can do:\n\n"
+                "🎬 Send me a video URL (Facebook/Instagram Reels, TikTok, "
+                "YouTube Shorts) – I'll extract the place and save it to the sheet.\n"
+                "📎 Send me your location and I'll find saved places nearby.\n\n"
+                "Commands:\n{commands}",
 
         "dup_saved": "⚠️ You already saved this video:\n📍 {name} ({date})",
         "dup_saved_other": "⚠️ You already saved this video (under a different link):\n"
@@ -194,7 +198,7 @@ MESSAGES = {
         "kept_msg": "✋ OK, keeping them as two different places.",
         "cb_row_gone": "Row no longer exists",
         "row_gone_msg": "⚠️ One of the rows is no longer in the sheet (maybe deleted). "
-                        "Run /dedup again.",
+                        "Run {cmd} again.",
         "cb_merged": "Merged",
         "merged_msg": "🔗 Merged: “{a}” + “{b}” will now show as one place on the map.",
         "cb_error": "Error",
@@ -210,6 +214,83 @@ MESSAGES = {
         "export_filename": "trips",
     },
 }
+
+
+# Registr příkazů bota – jediné místo, kde se příkaz definuje. Odvozuje se
+# z něj dispatch v main.py (command_aliases), menu Telegramu (menu_commands)
+# i seznam příkazů v nápovědě (help_text). Názvy v obou jazycích fungují
+# jako aliasy vždy, bez ohledu na BOT_LANGUAGE.
+BOT_COMMANDS = [
+    {
+        "key": "search",
+        "name": {"cs": "hledej", "en": "search"},
+        "extra_aliases": (),
+        "arg": "<text>",
+        "desc": {"cs": "Hledání v uložených místech",
+                 "en": "Search your saved places"},
+    },
+    {
+        "key": "dedup",
+        "name": {"cs": "zkontroluj", "en": "dedup"},
+        "extra_aliases": (),
+        "arg": "",
+        "desc": {"cs": "Kontrola duplicitních míst (návrhy na sloučení)",
+                 "en": "Check for duplicate places (merge suggestions)"},
+    },
+    {
+        "key": "id",
+        "name": {"cs": "id", "en": "id"},
+        "extra_aliases": (),
+        "arg": "",
+        "desc": {"cs": "Zobrazí tvoje Telegram user ID",
+                 "en": "Show your Telegram user ID"},
+    },
+    {
+        "key": "help",
+        "name": {"cs": "help", "en": "help"},
+        "extra_aliases": ("/start", "/napoveda"),
+        "arg": "",
+        "desc": {"cs": "Vypíše tuto nápovědu",
+                 "en": "Show this help message"},
+    },
+]
+
+
+def _command(key: str) -> dict:
+    for cmd in BOT_COMMANDS:
+        if cmd["key"] == key:
+            return cmd
+    raise KeyError(f"unknown bot command key: {key!r}")
+
+
+def command_aliases(key: str) -> tuple[str, ...]:
+    """Všechny tvary příkazu pro dispatch: „/název“ v obou jazycích + extra aliasy."""
+    cmd = _command(key)
+    # dict.fromkeys: dedup při stejném názvu v obou jazycích (např. /id)
+    names = dict.fromkeys(f"/{cmd['name'][lang]}" for lang in SUPPORTED_LANGUAGES)
+    return tuple(names) + tuple(cmd["extra_aliases"])
+
+
+def command_name(key: str) -> str:
+    """Název příkazu s lomítkem v jazyce bota (např. „/hledej“) – pro texty,
+    které na příkaz odkazují (search_usage, row_gone_msg)."""
+    return f"/{_command(key)['name'][LANG]}"
+
+
+def menu_commands() -> list[dict]:
+    """Payload pro Telegram setMyCommands v jazyce bota."""
+    return [{"command": cmd["name"][LANG], "description": cmd["desc"][LANG]}
+            for cmd in BOT_COMMANDS]
+
+
+def help_text() -> str:
+    """Text /help – seznam příkazů se generuje z BOT_COMMANDS, aby nemohl
+    ujet od skutečně registrovaných příkazů."""
+    lines = []
+    for cmd in BOT_COMMANDS:
+        arg = f" {cmd['arg']}" if cmd["arg"] else ""
+        lines.append(f"/{cmd['name'][LANG]}{arg} – {cmd['desc'][LANG]}")
+    return t("help", commands="\n".join(lines))
 
 
 def t(key: str, **kwargs) -> str:
