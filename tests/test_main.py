@@ -107,6 +107,11 @@ class TestFriendlyError:
     def test_unsupported_url(self):
         assert "neumím zpracovat" in friendly_error("Unsupported URL: https://x.com/...")
 
+    def test_too_long_video(self):
+        msg = friendly_error("video je příliš dlouhé (120 min, limit 10 min)")
+        assert "⏱️" in msg
+        assert "120 min" in msg
+
     def test_unknown_error_is_truncated(self):
         msg = friendly_error("X" * 500)
         assert len(msg) < 300

@@ -103,15 +103,21 @@ ruční registrace webhooku.
 Use-case „místa z krátkých videí" žije nejvíc na TikToku. yt-dlp obě platformy
 už umí — jde převážně o povolení URL formátů.
 
-- [ ] **TikTok** — přidat rozpoznání `tiktok.com` URL (včetně krátkých
+- [x] **TikTok** — přidat rozpoznání `tiktok.com` URL (včetně krátkých
   `vm.tiktok.com` share linků) do validace v `main.py` / `extractor.py`.
   Otestovat, zda yt-dlp z datacenter IP stahuje spolehlivě; případné limity
   zdokumentovat.
-- [ ] **YouTube Shorts** — povolit `youtube.com/shorts/ID` URL. Pozor na
+  *(hotovo v kódu; spolehlivost z datacenter IP zbývá ověřit provozem —
+  poznámka v README / Známé limity)*
+- [x] **YouTube Shorts** — povolit `youtube.com/shorts/ID` URL. Pozor na
   YouTube anti-bot opatření na datacenter IP — zdokumentovat případnou
   potřebu cookies.
-- [ ] **Sloupec `L: Zdroj` rozšířit** o nové hodnoty (tiktok, youtube), aby
+  *(hotovo: cookies se pro YouTube posílají stejně jako pro Instagram,
+  anti-bot blokace má vlastní srozumitelnou hlášku bota + popis v README)*
+- [x] **Sloupec `L: Zdroj` rozšířit** o nové hodnoty (tiktok, youtube), aby
   fungovaly filtry.
+  *(hotovo: `extract_source()` je jediné místo určování zdroje — analyzer
+  ho nově používá místo vlastní FB/IG podmínky)*
 
 ---
 

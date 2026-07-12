@@ -47,6 +47,8 @@ class TestParseMetadata:
     def test_source_from_url(self):
         assert parse_metadata("{}", "https://www.instagram.com/reel/x").source == "instagram"
         assert parse_metadata("{}", "https://www.facebook.com/reel/x").source == "facebook"
+        assert parse_metadata("{}", "https://www.tiktok.com/@u/video/1").source == "tiktok"
+        assert parse_metadata("{}", "https://www.youtube.com/shorts/x").source == "youtube"
 
     def test_fenced_response(self):
         m = parse_metadata(f"```json\n{GEMINI_JSON}\n```", "https://www.facebook.com/reel/1")
