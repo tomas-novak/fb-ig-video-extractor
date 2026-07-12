@@ -13,7 +13,7 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from i18n import t, command_aliases, help_text, menu_commands
+from i18n import t, command_aliases, command_name, help_text, menu_commands
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[commands] setMyCommands failed: {type(e).__name__}: {e}")
     yield
+    await close_telegram_client()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -128,12 +129,39 @@ app = FastAPI(lifespan=lifespan)
 _background_tasks: set = set()
 
 
+# Sdílený HTTP klient pro Telegram API – vytváří se líně při prvním volání
+# (funguje tak i CLI --set-webhook mimo lifespan), zavírá se při shutdownu.
+_telegram_client: httpx.AsyncClient | None = None
+
+
+def _get_telegram_client() -> httpx.AsyncClient:
+    global _telegram_client
+    if _telegram_client is None or _telegram_client.is_closed:
+        _telegram_client = httpx.AsyncClient()
+    return _telegram_client
+
+
+async def close_telegram_client() -> None:
+    if _telegram_client is not None and not _telegram_client.is_closed:
+        await _telegram_client.aclose()
+
+
 async def telegram_call(method: str, payload: dict) -> dict:
     """Jediné místo pro volání Telegram Bot API – timeouty, retry apod.
-    se případně mění tady, ne v jednotlivých obálkách."""
-    async with httpx.AsyncClient() as client:
-        r = await client.post(f"{TELEGRAM_API}/{method}", json=payload)
-        return r.json()
+    se případně mění tady, ne v jednotlivých obálkách.
+
+    Obsah odpovědi nikdy nevyhazuje výjimku: ne-JSON tělo (třeba HTML 502
+    od proxy) ani {"ok": false} nesmí shodit webhook handler – zaloguje se
+    a vrátí volajícímu. Síťové chyby (timeout, spadlé spojení) propadají
+    dál jako dřív."""
+    r = await _get_telegram_client().post(f"{TELEGRAM_API}/{method}", json=payload)
+    try:
+        result = r.json()
+    except ValueError:
+        result = {"ok": False, "error": f"non-JSON response (HTTP {r.status_code})"}
+    if not result.get("ok"):
+        print(f"[telegram] {method} failed: {result}")
+    return result
 
 
 async def send_message(chat_id: int, text: str, reply_markup: dict | None = None) -> None:
@@ -233,7 +261,7 @@ async def webhook(request: Request):
     if is_command(text, *command_aliases("search")):
         parts = text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
-            await send_message(chat_id, t("search_usage"))
+            await send_message(chat_id, t("search_usage", cmd=command_name("search")))
             return {"ok": True}
         task = asyncio.create_task(handle_search(chat_id, parts[1].strip()))
         _background_tasks.add(task)
@@ -487,7 +515,7 @@ async def handle_callback(callback: dict) -> None:
             a, b = by_row.get(row_a), by_row.get(row_b)
             if not a or not b:
                 await answer_callback(callback_id, t("cb_row_gone"))
-                await send_message(chat_id, t("row_gone_msg"))
+                await send_message(chat_id, t("row_gone_msg", cmd=command_name("dedup")))
                 return
 
             group = a["group_id"] or b["group_id"] or new_group_id()
@@ -668,7 +696,15 @@ if __name__ == "__main__":
     if "--set-webhook" in sys.argv:
         idx = sys.argv.index("--set-webhook")
         public_url = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else input("Public URL: ")
-        asyncio.run(set_webhook(public_url))
+
+        async def _cli_set_webhook():
+            # běží mimo lifespan – sdílený klient je nutné zavřít ručně
+            try:
+                await set_webhook(public_url)
+            finally:
+                await close_telegram_client()
+
+        asyncio.run(_cli_set_webhook())
     else:
         import uvicorn
         uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), reload=False)

@@ -2,7 +2,8 @@
 import pytest
 
 from i18n import (BOT_COMMANDS, DEFAULT_CATEGORIES, MESSAGES, _parse_categories,
-                  _parse_language, command_aliases, help_text, menu_commands, t)
+                  _parse_language, command_aliases, command_name, help_text,
+                  menu_commands, t)
 
 
 class TestParseLanguage:
@@ -87,6 +88,15 @@ class TestBotCommands:
         for cmd in BOT_COMMANDS:
             assert f"/{cmd['name']['cs']}" in text
         assert "/hledej <text>" in text
+
+    def test_command_name_podle_jazyka(self):
+        # conftest nastavuje BOT_LANGUAGE=cs
+        assert command_name("search") == "/hledej"
+        assert command_name("dedup") == "/zkontroluj"
+
+    def test_zpravy_dosazuji_nazev_prikazu_z_registru(self):
+        assert "/hledej tobogán" in t("search_usage", cmd=command_name("search"))
+        assert "Spusť /zkontroluj znovu" in t("row_gone_msg", cmd=command_name("dedup"))
 
     def test_help_text_anglicky(self, monkeypatch):
         import i18n

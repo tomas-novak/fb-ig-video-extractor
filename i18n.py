@@ -76,7 +76,8 @@ MESSAGES = {
         "id_reply": "🆔 Tvoje Telegram user ID: {user_id}",
         "private_bot": "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
                        "svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.",
-        "search_usage": "Použití: /hledej <text>\nnapř. /hledej tobogán",
+        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        "search_usage": "Použití: {cmd} <text>\nnapř. {cmd} tobogán",
         "dedup_started": "🔍 Kontroluji duplicitní místa, chvíli počkej...",
         # {commands} dosazuje help_text() z registru BOT_COMMANDS
         "help": "📖 Co umím:\n\n"
@@ -119,7 +120,7 @@ MESSAGES = {
         "kept_msg": "✋ OK, nechávám jako dvě různá místa.",
         "cb_row_gone": "Řádek už neexistuje",
         "row_gone_msg": "⚠️ Některý z řádků už v tabulce není (možná smazán). "
-                        "Spusť /zkontroluj znovu.",
+                        "Spusť {cmd} znovu.",
         "cb_merged": "Sloučeno",
         "merged_msg": "🔗 Sloučeno: „{a}“ + „{b}“ se teď na mapě zobrazí jako jedno místo.",
         "cb_error": "Chyba",
@@ -157,7 +158,8 @@ MESSAGES = {
         "id_reply": "🆔 Your Telegram user ID: {user_id}",
         "private_bot": "⛔ This bot is private. If it's yours, add your "
                        "ID ({user_id}) to TELEGRAM_ALLOWED_USERS.",
-        "search_usage": "Usage: /search <text>\ne.g. /search waterslide",
+        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        "search_usage": "Usage: {cmd} <text>\ne.g. {cmd} waterslide",
         "dedup_started": "🔍 Checking for duplicate places, hang on...",
         # {commands} dosazuje help_text() z registru BOT_COMMANDS
         "help": "📖 What I can do:\n\n"
@@ -196,7 +198,7 @@ MESSAGES = {
         "kept_msg": "✋ OK, keeping them as two different places.",
         "cb_row_gone": "Row no longer exists",
         "row_gone_msg": "⚠️ One of the rows is no longer in the sheet (maybe deleted). "
-                        "Run /dedup again.",
+                        "Run {cmd} again.",
         "cb_merged": "Merged",
         "merged_msg": "🔗 Merged: “{a}” + “{b}” will now show as one place on the map.",
         "cb_error": "Error",
@@ -269,6 +271,12 @@ def command_aliases(key: str) -> tuple[str, ...]:
     return tuple(names) + tuple(cmd["extra_aliases"])
 
 
+def command_name(key: str) -> str:
+    """Název příkazu s lomítkem v jazyce bota (např. „/hledej“) – pro texty,
+    které na příkaz odkazují (search_usage, row_gone_msg)."""
+    return f"/{_command(key)['name'][LANG]}"
+
+
 def menu_commands() -> list[dict]:
     """Payload pro Telegram setMyCommands v jazyce bota."""
     return [{"command": cmd["name"][LANG], "description": cmd["desc"][LANG]}
@@ -281,8 +289,7 @@ def help_text() -> str:
     lines = []
     for cmd in BOT_COMMANDS:
         arg = f" {cmd['arg']}" if cmd["arg"] else ""
-        desc = cmd["desc"][LANG]
-        lines.append(f"/{cmd['name'][LANG]}{arg} – {desc[0].lower()}{desc[1:]}")
+        lines.append(f"/{cmd['name'][LANG]}{arg} – {cmd['desc'][LANG]}")
     return t("help", commands="\n".join(lines))
 
 
