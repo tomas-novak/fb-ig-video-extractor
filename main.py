@@ -13,7 +13,7 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from i18n import t, LANG, BOT_COMMANDS
+from i18n import t, command_aliases, help_text, menu_commands
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
@@ -128,20 +128,26 @@ app = FastAPI(lifespan=lifespan)
 _background_tasks: set = set()
 
 
+async def telegram_call(method: str, payload: dict) -> dict:
+    """Jediné místo pro volání Telegram Bot API – timeouty, retry apod.
+    se případně mění tady, ne v jednotlivých obálkách."""
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{TELEGRAM_API}/{method}", json=payload)
+        return r.json()
+
+
 async def send_message(chat_id: int, text: str, reply_markup: dict | None = None) -> None:
     payload = {"chat_id": chat_id, "text": text}
     if reply_markup:
         payload["reply_markup"] = reply_markup
-    async with httpx.AsyncClient() as client:
-        await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
+    await telegram_call("sendMessage", payload)
 
 
 async def answer_callback(callback_id: str, text: str = "") -> None:
-    async with httpx.AsyncClient() as client:
-        await client.post(f"{TELEGRAM_API}/answerCallbackQuery", json={
-            "callback_query_id": callback_id,
-            "text": text,
-        })
+    await telegram_call("answerCallbackQuery", {
+        "callback_query_id": callback_id,
+        "text": text,
+    })
 
 
 def is_valid_url(text: str) -> bool:
@@ -199,7 +205,7 @@ async def webhook(request: Request):
     user_id = (message.get("from") or {}).get("id")
 
     # /id funguje pro každého – potřebné pro prvotní nastavení whitelistu
-    if is_command(text, "/id") and user_id is not None:
+    if is_command(text, *command_aliases("id")) and user_id is not None:
         await send_message(chat_id, t("id_reply", user_id=user_id))
         return {"ok": True}
 
@@ -210,8 +216,8 @@ async def webhook(request: Request):
         return {"ok": True}
 
     # Příkaz: nápověda (posílá se i jako reakce na jakýkoliv ne-URL text níže)
-    if is_command(text, "/help", "/start", "/napoveda"):
-        await send_message(chat_id, t("help"))
+    if is_command(text, *command_aliases("help")):
+        await send_message(chat_id, help_text())
         return {"ok": True}
 
     # Poslaná poloha -> nejbližší uložená místa
@@ -224,7 +230,7 @@ async def webhook(request: Request):
         return {"ok": True}
 
     # Příkaz: fulltextové hledání v uložených místech
-    if is_command(text, "/hledej", "/search"):
+    if is_command(text, *command_aliases("search")):
         parts = text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
             await send_message(chat_id, t("search_usage"))
@@ -235,7 +241,7 @@ async def webhook(request: Request):
         return {"ok": True}
 
     # Příkaz: kontrola duplicitních míst
-    if is_command(text, "/zkontroluj", "/dedup"):
+    if is_command(text, *command_aliases("dedup")):
         await send_message(chat_id, t("dedup_started"))
         task = asyncio.create_task(run_dedup_check(chat_id))
         _background_tasks.add(task)
@@ -243,7 +249,7 @@ async def webhook(request: Request):
         return {"ok": True}
 
     if not is_valid_url(text):
-        await send_message(chat_id, t("help"))
+        await send_message(chat_id, help_text())
         return {"ok": True}
 
     # Zpracování v background tasku aby webhook rychle odpověděl.
@@ -645,22 +651,17 @@ async def map_view():
 
 # Registrace webhooku (volá se automaticky při startu, ručně přes --set-webhook)
 async def set_webhook(public_url: str):
-    url = f"{TELEGRAM_API}/setWebhook"
     params = {"url": f"{public_url}/webhook"}
     if WEBHOOK_SECRET:
         params["secret_token"] = WEBHOOK_SECRET
-    async with httpx.AsyncClient() as client:
-        r = await client.post(url, json=params)
-        print(f"[webhook] setWebhook {public_url}/webhook -> {r.json()}")
+    result = await telegram_call("setWebhook", params)
+    print(f"[webhook] setWebhook {public_url}/webhook -> {result}")
 
 
 # Registrace příkazů do menu Telegramu – nabídka po napsání „/“ v chatu
 async def set_my_commands():
-    commands = [{"command": c, "description": d} for c, d in BOT_COMMANDS[LANG]]
-    async with httpx.AsyncClient() as client:
-        r = await client.post(f"{TELEGRAM_API}/setMyCommands",
-                              json={"commands": commands})
-        print(f"[commands] setMyCommands ({LANG}) -> {r.json()}")
+    result = await telegram_call("setMyCommands", {"commands": menu_commands()})
+    print(f"[commands] setMyCommands -> {result}")
 
 
 if __name__ == "__main__":

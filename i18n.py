@@ -78,15 +78,12 @@ MESSAGES = {
                        "svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.",
         "search_usage": "Použití: /hledej <text>\nnapř. /hledej tobogán",
         "dedup_started": "🔍 Kontroluji duplicitní místa, chvíli počkej...",
+        # {commands} dosazuje help_text() z registru BOT_COMMANDS
         "help": "📖 Co umím:\n\n"
                 "🎬 Pošli mi URL videa (Facebook/Instagram Reels, TikTok, "
                 "YouTube Shorts) – vytáhnu z něj místo a uložím ho do tabulky.\n"
                 "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n\n"
-                "Příkazy:\n"
-                "/hledej <text> – hledání v uložených místech\n"
-                "/zkontroluj – kontrola duplicitních míst (návrhy na sloučení)\n"
-                "/id – zobrazí tvoje Telegram user ID\n"
-                "/help – tato nápověda",
+                "Příkazy:\n{commands}",
 
         # Zpracování videa
         "dup_saved": "⚠️ Tohle video už máš uložené:\n📍 {name} ({date})",
@@ -162,15 +159,12 @@ MESSAGES = {
                        "ID ({user_id}) to TELEGRAM_ALLOWED_USERS.",
         "search_usage": "Usage: /search <text>\ne.g. /search waterslide",
         "dedup_started": "🔍 Checking for duplicate places, hang on...",
+        # {commands} dosazuje help_text() z registru BOT_COMMANDS
         "help": "📖 What I can do:\n\n"
                 "🎬 Send me a video URL (Facebook/Instagram Reels, TikTok, "
                 "YouTube Shorts) – I'll extract the place and save it to the sheet.\n"
                 "📎 Send me your location and I'll find saved places nearby.\n\n"
-                "Commands:\n"
-                "/search <text> – search your saved places\n"
-                "/dedup – check for duplicate places (merge suggestions)\n"
-                "/id – show your Telegram user ID\n"
-                "/help – this help message",
+                "Commands:\n{commands}",
 
         "dup_saved": "⚠️ You already saved this video:\n📍 {name} ({date})",
         "dup_saved_other": "⚠️ You already saved this video (under a different link):\n"
@@ -220,22 +214,76 @@ MESSAGES = {
 }
 
 
-# Příkazy pro menu Telegramu (setMyCommands) – nabídka po napsání „/“.
-# Názvy příkazů se liší podle jazyka (aliasy v druhém jazyce fungují vždy).
-BOT_COMMANDS = {
-    "cs": [
-        ("hledej", "Hledání v uložených místech"),
-        ("zkontroluj", "Kontrola duplicitních míst"),
-        ("id", "Zobrazí tvoje Telegram user ID"),
-        ("help", "Nápověda – co bot umí"),
-    ],
-    "en": [
-        ("search", "Search your saved places"),
-        ("dedup", "Check for duplicate places"),
-        ("id", "Show your Telegram user ID"),
-        ("help", "Help – what the bot can do"),
-    ],
-}
+# Registr příkazů bota – jediné místo, kde se příkaz definuje. Odvozuje se
+# z něj dispatch v main.py (command_aliases), menu Telegramu (menu_commands)
+# i seznam příkazů v nápovědě (help_text). Názvy v obou jazycích fungují
+# jako aliasy vždy, bez ohledu na BOT_LANGUAGE.
+BOT_COMMANDS = [
+    {
+        "key": "search",
+        "name": {"cs": "hledej", "en": "search"},
+        "extra_aliases": (),
+        "arg": "<text>",
+        "desc": {"cs": "Hledání v uložených místech",
+                 "en": "Search your saved places"},
+    },
+    {
+        "key": "dedup",
+        "name": {"cs": "zkontroluj", "en": "dedup"},
+        "extra_aliases": (),
+        "arg": "",
+        "desc": {"cs": "Kontrola duplicitních míst (návrhy na sloučení)",
+                 "en": "Check for duplicate places (merge suggestions)"},
+    },
+    {
+        "key": "id",
+        "name": {"cs": "id", "en": "id"},
+        "extra_aliases": (),
+        "arg": "",
+        "desc": {"cs": "Zobrazí tvoje Telegram user ID",
+                 "en": "Show your Telegram user ID"},
+    },
+    {
+        "key": "help",
+        "name": {"cs": "help", "en": "help"},
+        "extra_aliases": ("/start", "/napoveda"),
+        "arg": "",
+        "desc": {"cs": "Vypíše tuto nápovědu",
+                 "en": "Show this help message"},
+    },
+]
+
+
+def _command(key: str) -> dict:
+    for cmd in BOT_COMMANDS:
+        if cmd["key"] == key:
+            return cmd
+    raise KeyError(f"unknown bot command key: {key!r}")
+
+
+def command_aliases(key: str) -> tuple[str, ...]:
+    """Všechny tvary příkazu pro dispatch: „/název“ v obou jazycích + extra aliasy."""
+    cmd = _command(key)
+    # dict.fromkeys: dedup při stejném názvu v obou jazycích (např. /id)
+    names = dict.fromkeys(f"/{cmd['name'][lang]}" for lang in SUPPORTED_LANGUAGES)
+    return tuple(names) + tuple(cmd["extra_aliases"])
+
+
+def menu_commands() -> list[dict]:
+    """Payload pro Telegram setMyCommands v jazyce bota."""
+    return [{"command": cmd["name"][LANG], "description": cmd["desc"][LANG]}
+            for cmd in BOT_COMMANDS]
+
+
+def help_text() -> str:
+    """Text /help – seznam příkazů se generuje z BOT_COMMANDS, aby nemohl
+    ujet od skutečně registrovaných příkazů."""
+    lines = []
+    for cmd in BOT_COMMANDS:
+        arg = f" {cmd['arg']}" if cmd["arg"] else ""
+        desc = cmd["desc"][LANG]
+        lines.append(f"/{cmd['name'][LANG]}{arg} – {desc[0].lower()}{desc[1:]}")
+    return t("help", commands="\n".join(lines))
 
 
 def t(key: str, **kwargs) -> str:
