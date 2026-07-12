@@ -13,7 +13,7 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from i18n import t
+from i18n import t, LANG, BOT_COMMANDS
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
@@ -115,6 +115,10 @@ async def lifespan(app: FastAPI):
     else:
         print("[webhook] neither PUBLIC_URL nor RAILWAY_PUBLIC_DOMAIN is set – "
               "register the webhook manually: python main.py --set-webhook <url>")
+    try:
+        await set_my_commands()
+    except Exception as e:
+        print(f"[commands] setMyCommands failed: {type(e).__name__}: {e}")
     yield
 
 
@@ -203,6 +207,11 @@ async def webhook(request: Request):
         if user_id is not None:
             await send_message(chat_id, t("private_bot", user_id=user_id))
         # channel_post bez odesílatele při zapnutém whitelistu tiše ignorovat
+        return {"ok": True}
+
+    # Příkaz: nápověda (posílá se i jako reakce na jakýkoliv ne-URL text níže)
+    if is_command(text, "/help", "/start", "/napoveda"):
+        await send_message(chat_id, t("help"))
         return {"ok": True}
 
     # Poslaná poloha -> nejbližší uložená místa
@@ -643,6 +652,15 @@ async def set_webhook(public_url: str):
     async with httpx.AsyncClient() as client:
         r = await client.post(url, json=params)
         print(f"[webhook] setWebhook {public_url}/webhook -> {r.json()}")
+
+
+# Registrace příkazů do menu Telegramu – nabídka po napsání „/“ v chatu
+async def set_my_commands():
+    commands = [{"command": c, "description": d} for c, d in BOT_COMMANDS[LANG]]
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{TELEGRAM_API}/setMyCommands",
+                              json={"commands": commands})
+        print(f"[commands] setMyCommands ({LANG}) -> {r.json()}")
 
 
 if __name__ == "__main__":
