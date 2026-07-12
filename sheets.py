@@ -47,7 +47,11 @@ def new_group_id() -> str:
 def append_row(metadata: VideoMetadata) -> None:
     if not metadata.group_id:
         metadata.group_id = new_group_id()
-    _get_sheet().append_row(metadata.to_sheets_row(), value_input_option="USER_ENTERED")
+    # table_range="A1": bez ukotvení si API hledá "tabulku" samo a úplně prázdný
+    # sloupec (O: navštíveno) považuje za její konec – nové řádky pak zapisuje
+    # posunuté doprava za sloupec R (viz posunuté řádky ze 7/2026).
+    _get_sheet().append_row(metadata.to_sheets_row(), value_input_option="USER_ENTERED",
+                            table_range="A1")
 
 
 def _parse_row(row: list, row_number: int) -> dict | None:
