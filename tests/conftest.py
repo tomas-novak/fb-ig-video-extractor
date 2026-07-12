@@ -13,6 +13,9 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST_TOKEN_NOT_REAL")
 # při importu a vývojářova konfigurace by jinak mohla shodit celou test suite.
 for _var in ("TELEGRAM_ALLOWED_USERS", "MAP_TOKEN", "MAP_VIEW_TOKEN"):
     os.environ[_var] = ""
+# Limit délky videa čte extractor.py při importu – nevalidní hodnota
+# ve vývojářově .env by shodila import; testy počítají s výchozí 10.
+os.environ["MAX_VIDEO_MINUTES"] = "10"
 
 # Import modulů projektu z kořene repa (testy běží z podsložky tests/)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

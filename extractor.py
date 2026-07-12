@@ -75,8 +75,8 @@ def _resolve_cookies() -> str | None:
 
 # Videa delší než limit se vůbec nestahují – bot je stavěný na krátká videa
 # (Reels, TikTok, Shorts) a u dlouhých by download i upload do Gemini byly
-# pomalé a drahé. 0 = bez limitu.
-MAX_VIDEO_MINUTES = int(os.getenv("MAX_VIDEO_MINUTES", "10"))
+# pomalé a drahé. 0 = bez limitu; prázdná hodnota = výchozích 10.
+MAX_VIDEO_MINUTES = int(os.getenv("MAX_VIDEO_MINUTES") or 10)
 
 
 def duration_error(info: dict) -> str | None:
