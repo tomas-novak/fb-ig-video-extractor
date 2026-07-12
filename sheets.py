@@ -3,6 +3,7 @@ import os
 import uuid
 import gspread
 from google.oauth2.service_account import Credentials
+from i18n import FALLBACK_CATEGORY
 from models import VideoMetadata
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -69,7 +70,7 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "location_name": row[4],
         "lat": lat,
         "lng": lng,
-        "category": (row[7] or "jiné").strip(),
+        "category": (row[7] or FALLBACK_CATEGORY).strip(),
         "tags": row[8],
         "summary": row[9],
         "source": row[11],

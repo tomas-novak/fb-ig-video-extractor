@@ -1,150 +1,174 @@
-# FB/IG Video Extractor — Cestovní deník přes Telegram
+# FB/IG Video Extractor — Travel Journal via Telegram
 
 [![CI](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml/badge.svg)](https://github.com/tomas-novak/fb-ig-video-extractor/actions/workflows/ci.yml)
 
-Pošli URL krátkého videa (Facebook/Instagram Reels, TikTok, YouTube Shorts)
-**svému** Telegram botovi → AI automaticky vytáhne místo, přepíše zvuk a uloží
-vše do Google Sheets. Uložená místa pak vidíš na interaktivní mapě s filtry.
+🇨🇿 **Česká verze: [README.cs.md](README.cs.md)**
 
-Jde o **self-hosted** nástroj: každý si nasazuje vlastní instanci s vlastním
-botem, vlastní tabulkou a vlastními API klíči. Neexistuje žádný sdílený
-veřejný bot.
+Send a short-video URL (Facebook/Instagram Reels, TikTok, YouTube Shorts) to
+**your own** Telegram bot → AI automatically extracts the place, transcribes
+the audio and saves everything to Google Sheets. You then see your saved
+places on an interactive map with filters.
 
-## Motivace
+This is a **self-hosted** tool: everyone deploys their own instance with
+their own bot, their own spreadsheet and their own API keys. There is no
+shared public bot.
 
-Při scrollování sociálních sítí narážím na zajímavá místa ve videích (koupaliště,
-výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyplňování.
+## Motivation
 
-## Jak to funguje
+While scrolling social media I keep running into interesting places in videos
+(swimming spots, trips, restaurants...). I want to save them easily from my
+phone without filling anything in by hand.
 
-1. Najdeš zajímavé video na Facebooku, Instagramu, TikToku nebo YouTube
-2. Klikneš "Sdílet" → zkopíruješ URL → pošleš svému botovi v Telegramu
-   (fungují i zkrácené share linky: `fb.watch`, `vm.tiktok.com`, `youtu.be`)
-3. Bot do ~30 sekund odpoví:
+## How it works
+
+1. You find an interesting video on Facebook, Instagram, TikTok or YouTube
+2. You tap "Share" → copy the URL → send it to your bot on Telegram
+   (shortened share links work too: `fb.watch`, `vm.tiktok.com`, `youtu.be`)
+3. The bot replies within ~30 seconds:
    ```
-   ✅ Uloženo!
-   📍 Koupaliště Slaný
-   🏷️ koupání | outdoor, s dětmi, bazén
+   ✅ Saved!
+   📍 Slaný Swimming Pool
+   🏷️ swimming | outdoor, kids, pool
 
-   Moderní aquapark v Slaném s bazény pro děti i dospělé.
-   Zábava pro celou rodinu.
+   A modern water park in Slaný with pools for kids and adults.
+   Fun for the whole family.
    🧭 https://www.google.com/maps/search/?api=1&query=50.23,14.09&query_place_id=...
    ```
-4. Místo se uloží do Google Sheets včetně přesných GPS souřadnic (Google
-   Places), přepisu zvuku a odkazu na Google Maps
-5. Na `/map` vidíš všechna místa na mapě — filtrování podle kategorií a tagů,
-   označování navštívených míst, slučování duplicit
+4. The place is saved to Google Sheets including precise GPS coordinates
+   (Google Places), an audio transcript and a Google Maps link
+5. On `/map` you see all places on a map — filtering by categories and tags,
+   marking visited places, merging duplicates
 
-## Technologie
+## Tech stack
 
-- Telegram Bot API (vstupní rozhraní z mobilu)
-- yt-dlp (stažení videa)
-- Google Gemini Flash (analýza videa: přepis + místo + kategorie)
-- Google Places API (přesné souřadnice + odkazy na mapy)
-- Claude Haiku (posuzování duplicitních míst)
-- Google Sheets (databáze míst)
+- Telegram Bot API (input interface from your phone)
+- yt-dlp (video download)
+- Google Gemini Flash (video analysis: transcript + place + category)
+- Google Places API (precise coordinates + map links)
+- Claude Haiku (judging duplicate places)
+- Google Sheets (place database)
 - FastAPI + Railway (backend hosting)
-- Leaflet + OpenStreetMap (mapa)
+- Leaflet + OpenStreetMap (map)
 
-## Nastavení — vlastní instance (~15 minut, vše zdarma)
+## Setup — your own instance (~15 minutes, all free)
 
-Potřebuješ 4 klíče a jedno nasazení. Postupně:
+You need 4 keys and one deployment. Step by step:
 
 ### 1. Telegram bot (2 min)
-V Telegramu napiš [@BotFather](https://t.me/BotFather) → `/newbot` → zvol
-jméno. Dostaneš **token** (`123456:ABC-...`) → `TELEGRAM_BOT_TOKEN`.
+On Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot` →
+pick a name. You get a **token** (`123456:ABC-...`) → `TELEGRAM_BOT_TOKEN`.
 
-### 2. Gemini API klíč (2 min)
+### 2. Gemini API key (2 min)
 [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) →
-Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
+Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
 
-### 3. Google Sheets + service account (5–10 min, nejtěžší krok)
-1. Vytvoř prázdnou Google tabulku; z URL zkopíruj její ID → `GOOGLE_SHEETS_ID`
-2. [console.cloud.google.com](https://console.cloud.google.com) → vytvoř
-   projekt → zapni **Google Sheets API**
-3. Credentials → Create Credentials → **Service Account** → u něj Keys →
-   Add Key → JSON (stáhne se soubor)
-4. Obsah JSON souboru (jeden řádek) → `GOOGLE_SERVICE_ACCOUNT_JSON`
-5. Tabulku **nasdílej** (Editor) na e-mail service accountu
+### 3. Google Sheets + service account (5–10 min, the hardest step)
+1. Create an empty Google spreadsheet; copy its ID from the URL →
+   `GOOGLE_SHEETS_ID`
+2. [console.cloud.google.com](https://console.cloud.google.com) → create a
+   project → enable the **Google Sheets API**
+3. Credentials → Create Credentials → **Service Account** → under it Keys →
+   Add Key → JSON (a file downloads)
+4. The JSON file's content (one line) → `GOOGLE_SERVICE_ACCOUNT_JSON`
+5. **Share** the spreadsheet (Editor) with the service account's e-mail
    (`...@....iam.gserviceaccount.com`)
 
-### 4. Volitelné klíče
-- `GOOGLE_MAPS_API_KEY` — přesné souřadnice míst (Places API New; bez něj se
-  použijí odhady AI)
-- `ANTHROPIC_API_KEY` — kontrola duplicitních míst příkazem `/zkontroluj`
-- `MAP_TOKEN` — ochrana mapy (bez něj je mapa veřejná)
-- `WEBHOOK_SECRET` — ověřování Telegram webhooků
+### 4. Optional keys and settings
+- `GOOGLE_MAPS_API_KEY` — precise place coordinates (Places API New;
+  without it, AI estimates are used)
+- `ANTHROPIC_API_KEY` — duplicate-place check via the `/dedup` command
+- `MAP_TOKEN` — map protection (without it the map is public)
+- `WEBHOOK_SECRET` — Telegram webhook verification
+- `BOT_LANGUAGE` — language of bot replies, the map and AI summaries:
+  `en` (default) or `cs`
+- `CATEGORIES` — custom comma-separated categories (default for `en`:
+  `swimming,hiking,food,culture,nature,sport,fun,hotel,other`). The last
+  category in the list is the catch-all — used when the AI can't decide.
 
-### 5. Nasazení
+### 5. Deployment
 
-**Railway:** nové Project → Deploy from GitHub repo (fork tohoto repa) →
-vlož proměnné z `.env.example` → Generate Domain. Webhook se zaregistruje
-automaticky.
+**Railway:** new Project → Deploy from GitHub repo (fork of this repo) →
+paste the variables from `.env.example` → Generate Domain. The webhook
+registers automatically.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
-cp .env.example .env   # vyplň klíče + PUBLIC_URL
+cp .env.example .env   # fill in the keys + PUBLIC_URL
 docker compose up -d
 ```
 
-### 6. Po nasazení
-1. Pošli botovi `/id` → vrátí tvoje Telegram ID
-2. Nastav `TELEGRAM_ALLOWED_USERS=<tvoje_id>` — jinak může bota používat
-   kdokoliv a čerpat tvůj API kredit
-3. Mapa: `https://tvoje-instance/map?token=MAP_TOKEN`
+### 6. After deployment
+1. Send `/id` to the bot → it returns your Telegram ID
+2. Set `TELEGRAM_ALLOWED_USERS=<your_id>` — otherwise anyone can use the
+   bot and burn your API credit
+3. Map: `https://your-instance/map?token=MAP_TOKEN`
 
-Detailní technická dokumentace: [CLAUDE.md](CLAUDE.md) · plán featur:
-[ROADMAP.md](ROADMAP.md) · změny: [CHANGELOG.md](CHANGELOG.md)
+Detailed technical docs: [CLAUDE.md](CLAUDE.md) · feature plan:
+[ROADMAP.md](ROADMAP.md) · changes: [CHANGELOG.md](CHANGELOG.md)
 
-## Vývoj a testy
+## Bot commands
+
+- send a video URL → saves the place
+- send your location (Telegram Location attachment) → closest saved places
+- `/search <text>` (alias `/hledej`) — search your saved places
+- `/dedup` (alias `/zkontroluj`) — check for duplicate places
+- `/id` — your Telegram user ID (for setting up the whitelist)
+
+## Development and tests
 
 ```bash
 pip install -r requirements-dev.txt
-pytest          # testy (běží bez reálných API klíčů)
+pytest          # tests (run without real API keys)
 ruff check .    # lint
 ```
 
-Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
+Both are checked automatically by GitHub Actions on every push and pull
+request.
 
-## Známé limity
+## Known limitations
 
-- **Instagram vyžaduje cookies.** Z datacenter IP (Railway apod.) Instagram
-  anonymní stahování většinou blokuje („login required"). Řešení: exportuj
-  cookies přihlášeného účtu (rozšíření typu *Get cookies.txt*) a nastav
-  `INSTAGRAM_COOKIES` (obsah souboru) nebo `COOKIES_FILE` (cesta k souboru).
-  Cookies občas vyprší a je potřeba je obnovit.
-- **Facebook občas blokuje datacenter IP.** Většinou funguje anonymně, ale
-  při blokaci pomůže stejný postup s cookies. Stav instance zjistíš na
-  endpointu `/debug?token=MAP_TOKEN`.
-- **YouTube ze serveru často vyžaduje cookies.** Datacenter IP YouTube běžně
-  blokuje hláškou „Sign in to confirm you're not a bot". Řešení je stejné
-  jako u Instagramu — do souboru s cookies přidej i cookies přihlášeného
-  YouTube/Google účtu (jeden `cookies.txt` může obsahovat obě domény;
-  proměnná se jmenuje `INSTAGRAM_COOKIES` z historických důvodů, obsah
-  platí pro všechny domény v souboru).
-- **TikTok zatím bez ověření provozem.** yt-dlp TikTok podporuje (včetně
-  `vm.tiktok.com` share linků) a stahuje anonymně; spolehlivost z datacenter
-  IP se může měnit podle anti-bot opatření TikToku. Kdyby stahování selhávalo,
-  založ issue s chybovou hláškou z odpovědi bota.
-- **Gemini free tier má rate limity.** Při rychlém posílání více videí za
-  sebou může analýza dočasně selhat — chvíli počkej a pošli video znovu.
-- **Délka videa.** Bot je stavěný na krátká videa (Reels, TikTok, Shorts).
-  Videa delší než 10 minut odmítne ještě před stažením — limit jde změnit
-  proměnnou `MAX_VIDEO_MINUTES` (0 = bez limitu). I u povolených delších
-  videí může zpracování v Gemini vypršet (čeká se max. 2 minuty).
-- **Souřadnice bez `GOOGLE_MAPS_API_KEY` jsou jen odhad.** Gemini souřadnice
-  odhaduje a může se splést i o kilometry; s Places API klíčem se místo
-  dohledá přesně.
+- **Instagram requires cookies.** From datacenter IPs (Railway etc.)
+  Instagram usually blocks anonymous downloads ("login required"). Solution:
+  export cookies of a logged-in account (an extension like *Get cookies.txt*)
+  and set `INSTAGRAM_COOKIES` (file content) or `COOKIES_FILE` (file path).
+  Cookies expire from time to time and need refreshing.
+- **Facebook occasionally blocks datacenter IPs.** It usually works
+  anonymously, but when blocked, the same cookie approach helps. Check your
+  instance's state at the `/debug?token=MAP_TOKEN` endpoint.
+- **YouTube often requires cookies on servers.** YouTube commonly blocks
+  datacenter IPs with "Sign in to confirm you're not a bot". The solution is
+  the same as for Instagram — add cookies of a logged-in YouTube/Google
+  account to the cookies file (one `cookies.txt` can contain both domains;
+  the variable is called `INSTAGRAM_COOKIES` for historical reasons, its
+  content applies to all domains in the file).
+- **TikTok not yet verified in production.** yt-dlp supports TikTok
+  (including `vm.tiktok.com` share links) and downloads anonymously;
+  reliability from datacenter IPs may vary with TikTok's anti-bot measures.
+  If downloads keep failing, open an issue with the error message from the
+  bot's reply.
+- **The Gemini free tier has rate limits.** When sending several videos in
+  quick succession, analysis may fail temporarily — wait a moment and send
+  the video again.
+- **Video length.** The bot is built for short videos (Reels, TikTok,
+  Shorts). Videos longer than 10 minutes are rejected before downloading —
+  the limit can be changed via `MAX_VIDEO_MINUTES` (0 = no limit). Even for
+  allowed longer videos, Gemini processing may time out (max. 2 minutes).
+- **Coordinates without `GOOGLE_MAPS_API_KEY` are only estimates.** Gemini
+  estimates coordinates and can be off by kilometers; with a Places API key
+  the place is looked up precisely.
+- **Changing `BOT_LANGUAGE` / `CATEGORIES` does not change old data.**
+  Previously saved rows keep their original language and categories; on the
+  map, categories outside the current configuration are shown in grey.
 
-## Právní upozornění
+## Legal notice
 
-Tento nástroj stahuje videa z Facebooku a Instagramu pomocí
-[yt-dlp](https://github.com/yt-dlp/yt-dlp), což může porušovat podmínky
-služeb společnosti Meta. Nástroj je určen výhradně k **osobní archivaci**
-obsahu pro vlastní potřebu (uložení tipů na výlety). Používáš ho na vlastní
-odpovědnost. Nestahuj ani nešiř cizí obsah způsobem, který porušuje autorská
-práva jeho tvůrců.
+This tool downloads videos from Facebook and Instagram using
+[yt-dlp](https://github.com/yt-dlp/yt-dlp), which may violate Meta's terms
+of service. The tool is intended solely for **personal archiving** of
+content for your own use (saving trip tips). You use it at your own risk.
+Do not download or distribute other people's content in ways that violate
+its creators' copyright.
 
-## Licence
+## License
 
-Kód je dostupný pod licencí [MIT](LICENSE).
+The code is available under the [MIT](LICENSE) license.

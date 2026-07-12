@@ -3,6 +3,7 @@ import os
 import time
 import google.generativeai as genai
 from extractor import extract_source
+from i18n import CATEGORIES, FALLBACK_CATEGORY, LANG, t
 from models import VideoMetadata
 
 
@@ -23,7 +24,7 @@ def _get_model():
     if _model is None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise RuntimeError("Chybí proměnná prostředí GEMINI_API_KEY")
+            raise RuntimeError("Missing GEMINI_API_KEY environment variable")
         genai.configure(api_key=api_key)
         _model = genai.GenerativeModel("gemini-2.5-flash")
     return _model
@@ -33,7 +34,15 @@ _VIDEO_MIME = {
     ".mkv": "video/x-matroska", ".m4v": "video/mp4", ".3gp": "video/3gpp",
 }
 
-SYSTEM_PROMPT = """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš samotné video, jeho popisek (caption) a URL.
+# Prompty jsou šablony – tokeny __CATEGORIES__ apod. se dosazují přes .replace()
+# (str.format by se pral se závorkami ukázkového JSON).
+_HOTEL_NOTE = {
+    "cs": "\n  (hotel = video je primárně o ubytování / hotelu / penzionu / kempu)",
+    "en": "\n  (hotel = the video is primarily about accommodation / a hotel / guesthouse / campsite)",
+}
+
+_SYSTEM_PROMPT_TEMPLATES = {
+    "cs": """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš samotné video, jeho popisek (caption) a URL.
 
 Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném formátu:
 {
@@ -42,7 +51,7 @@ Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném 
   "city": "obec nebo město, kde místo leží (pokud je známé, jinak prázdné)",
   "lat": 50.1234,
   "lng": 14.5678,
-  "category": "koupání",
+  "category": "__CATEGORY_EXAMPLE__",
   "tags": "outdoor,s dětmi,bazén",
   "summary": "2-3 věty popisující místo a proč je zajímavé."
 }
@@ -54,11 +63,77 @@ Pravidla pro určení místa (DŮLEŽITÉ – v tomto pořadí priority):
 4. NIKDY si název místa nevymýšlej. Když místo nejde určit z žádného zdroje, dej do location_name "Neznámé místo" a lat/lng 0.
 
 Další pravidla:
-- category: jedna z: koupání, turistika, jídlo, kultura, příroda, sport, zábava, hotel, jiné
-  (hotel = video je primárně o ubytování / hotelu / penzionu / kempu)
+- category: právě jedna z: __CATEGORIES____HOTEL_NOTE__
+  Když žádná nesedí, použij "__FALLBACK__".
 - lat/lng: odhadni co nejpřesnější souřadnice podle konkrétního názvu místa a adresy
-- tags: max 4 tagy oddělené čárkou, bez mezer kolem čárek
-- transcript: přepis mluveného slova z videa; pokud video nemá zvuk, nech prázdný řetězec"""
+- tags: max 4 tagy oddělené čárkou, bez mezer kolem čárek; piš je česky
+- summary: piš česky
+- transcript: přepis mluveného slova z videa v původním jazyce; pokud video nemá zvuk, nech prázdný řetězec""",
+    "en": """You are an AI assistant that analyzes travel videos. You get the video itself, its caption and URL.
+
+Return ONLY valid JSON (no markdown, no extra text) in this exact format:
+{
+  "transcript": "full transcript of the spoken words",
+  "location_name": "name of the specific place (name of the venue/attraction)",
+  "city": "town or city where the place is located (if known, otherwise empty)",
+  "lat": 50.1234,
+  "lng": 14.5678,
+  "category": "__CATEGORY_EXAMPLE__",
+  "tags": "outdoor,kids,pool",
+  "summary": "2-3 sentences describing the place and why it is interesting."
+}
+
+Rules for determining the place (IMPORTANT – in this order of priority):
+1. FIRST look for a specific place name/address in the CAPTION – creators often state the place there, typically after a pin 📍, after words like "where:", "location:", or in hashtags. This is the most reliable source.
+2. Then TEXT SHOWN IN THE VIDEO (place names, signs, on-screen labels).
+3. Only then the spoken words in the video.
+4. NEVER make up a place name. If the place cannot be determined from any source, set location_name to "Unknown place" and lat/lng to 0.
+
+Other rules:
+- category: exactly one of: __CATEGORIES____HOTEL_NOTE__
+  If none fits, use "__FALLBACK__".
+- lat/lng: estimate the most precise coordinates based on the specific place name and address
+- tags: max 4 comma-separated tags, no spaces around commas; write them in English
+- summary: write in English
+- transcript: transcript of the spoken words in their original language; if the video has no sound, leave an empty string""",
+}
+
+_USER_PROMPT_TEMPLATES = {
+    "cs": '''URL videa: {url}
+Autor: {author}
+Titulek: {title}
+
+POPISEK VIDEA (caption – hlavní zdroj pro určení místa):
+"""
+{description}
+"""
+
+Analyzuj přiložené video a extrahuj metadata o místě.
+Místo urči především z popisku výše (často za 📍), pak z textu na obrazovce, pak z mluveného slova.
+Pokud má video zvuk, přepiš mluvený projev do pole transcript.''',
+    "en": '''Video URL: {url}
+Author: {author}
+Title: {title}
+
+VIDEO CAPTION (the primary source for determining the place):
+"""
+{description}
+"""
+
+Analyze the attached video and extract metadata about the place.
+Determine the place primarily from the caption above (often after 📍), then from on-screen text, then from the spoken words.
+If the video has sound, transcribe the speech into the transcript field.''',
+}
+
+
+def system_prompt() -> str:
+    """Systémový prompt v jazyce bota s kategoriemi z konfigurace."""
+    hotel_note = _HOTEL_NOTE[LANG] if "hotel" in CATEGORIES else ""
+    return (_SYSTEM_PROMPT_TEMPLATES[LANG]
+            .replace("__CATEGORIES__", ", ".join(CATEGORIES))
+            .replace("__CATEGORY_EXAMPLE__", CATEGORIES[0])
+            .replace("__FALLBACK__", FALLBACK_CATEGORY)
+            .replace("__HOTEL_NOTE__", hotel_note))
 
 
 def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
@@ -79,23 +154,13 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
         waited += 2
         media_file = genai.get_file(media_file.name)
     if media_file.state.name != "ACTIVE":
-        raise RuntimeError(f"Gemini nezpracoval video (stav {media_file.state.name})")
+        raise RuntimeError(t("gemini_not_processed", state=media_file.state.name))
 
-    prompt = f"""URL videa: {url}
-Autor: {author}
-Titulek: {title}
-
-POPISEK VIDEA (caption – hlavní zdroj pro určení místa):
-\"\"\"
-{description[:2000]}
-\"\"\"
-
-Analyzuj přiložené video a extrahuj metadata o místě.
-Místo urči především z popisku výše (často za 📍), pak z textu na obrazovce, pak z mluveného slova.
-Pokud má video zvuk, přepiš mluvený projev do pole transcript."""
+    prompt = _USER_PROMPT_TEMPLATES[LANG].format(
+        url=url, author=author, title=title, description=description[:2000])
 
     response = model.generate_content(
-        [media_file, SYSTEM_PROMPT + "\n\n" + prompt],
+        [media_file, system_prompt() + "\n\n" + prompt],
         generation_config=genai.GenerationConfig(
             temperature=0,
             max_output_tokens=8192,
@@ -107,7 +172,7 @@ Pokud má video zvuk, přepiš mluvený projev do pole transcript."""
         raw = response.text.strip()
     except (ValueError, AttributeError) as e:
         # Gemini nevrátil textovou část (bezpečnostní blok, prázdná odpověď, MAX_TOKENS bez textu)
-        raise RuntimeError(f"Gemini nevrátil žádný text k analýze ({e})")
+        raise RuntimeError(t("gemini_no_text", error=e))
 
     return parse_metadata(raw, url, author=author, title=title)
 
@@ -135,7 +200,7 @@ def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> Vid
         city=data.get("city", "") or "",
         lat=_safe_float(data.get("lat")),
         lng=_safe_float(data.get("lng")),
-        category=data.get("category", "jiné"),
+        category=data.get("category", FALLBACK_CATEGORY),
         tags=data.get("tags", ""),
         summary=data.get("summary", ""),
         transcript=data.get("transcript", ""),

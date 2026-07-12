@@ -36,10 +36,12 @@ zobrazený ve videu, což zpřesňuje určení místa.
 ```
 FB_IG_video_extractor/
 ├── CLAUDE.md          # tento soubor
-├── README.md          # uživatelská dokumentace
+├── README.md          # uživatelská dokumentace (anglicky, výchozí)
+├── README.cs.md       # uživatelská dokumentace (česky)
 ├── main.py            # FastAPI app + Telegram webhook handler
 ├── extractor.py       # yt-dlp download logic
 ├── analyzer.py        # Gemini API volání (transkripce + analýza)
+├── i18n.py            # jazyk bota (BOT_LANGUAGE) + kategorie (CATEGORIES) + texty
 ├── sheets.py          # Google Sheets zápis
 ├── models.py          # datové modely (VideoMetadata)
 ├── requirements.txt
@@ -55,6 +57,8 @@ GEMINI_API_KEY=           # Google AI Studio
 GOOGLE_SHEETS_ID=         # ID Google Sheetu
 GOOGLE_SERVICE_ACCOUNT=   # JSON service account (base64 nebo path)
 WEBHOOK_SECRET=           # volitelný secret pro ověření Telegram webhooků
+BOT_LANGUAGE=             # jazyk odpovědí bota, mapy a AI shrnutí: en (výchozí) / cs
+CATEGORIES=               # vlastní kategorie oddělené čárkou; poslední = záchytná
 ```
 
 ## Google Sheets struktura (Sheet1)
@@ -76,7 +80,11 @@ Viz `dedup.py`. Sloučení nic nemaže a je vratné (smazat group_id v tabulce).
 
 ## Kategorie (pro filtrování v mapě)
 
-`koupání` · `turistika` · `jídlo` · `kultura` · `příroda` · `sport` · `zábava` · `jiné`
+Výchozí (cs): `koupání` · `turistika` · `jídlo` · `kultura` · `příroda` · `sport` · `zábava` · `hotel` · `jiné`
+
+Kategorie jsou konfigurovatelné env proměnnou `CATEGORIES` (viz `i18n.py`);
+poslední v seznamu je záchytná. Jazyk odpovědí bota, mapy a Gemini shrnutí
+řídí `BOT_LANGUAGE` (`en` výchozí / `cs`); přepis zvuku zůstává v jazyce videa.
 
 ## Vývoj
 
@@ -87,6 +95,11 @@ pip install -r requirements.txt
 cp .env.example .env        # vyplnit hodnoty
 uvicorn main:app --reload --port 8000
 ```
+
+## Git
+
+- Commit messages, názvy větví a texty PR piš **anglicky**.
+- Komentáře v kódu a dokumentace pro vývoj (tento soubor) zůstávají česky.
 
 ## Nasazení (Railway)
 

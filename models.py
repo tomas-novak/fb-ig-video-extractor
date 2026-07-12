@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from i18n import FALLBACK_CATEGORY
+
 
 @dataclass
 class VideoMetadata:
@@ -10,7 +12,7 @@ class VideoMetadata:
     location_name: str = ""
     lat: float = 0.0
     lng: float = 0.0
-    category: str = "jiné"
+    category: str = FALLBACK_CATEGORY
     tags: str = ""
     summary: str = ""
     transcript: str = ""

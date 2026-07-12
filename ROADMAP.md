@@ -85,16 +85,22 @@ ruční registrace webhooku.
 
 Český GitHub trh je malý. Otevření světu = násobně větší dosah.
 
-- [ ] **Anglické README jako výchozí** — `README.md` anglicky, česká verze
+- [x] **Anglické README jako výchozí** — `README.md` anglicky, česká verze
   vedle jako `README.cs.md` (vzájemné odkazy v hlavičce).
-- [ ] **Jazyk odpovědí bota do konfigurace** — env variable `BOT_LANGUAGE`
+- [x] **Jazyk odpovědí bota do konfigurace** — env variable `BOT_LANGUAGE`
   (např. `cs` / `en`). Texty zpráv v `main.py` vytáhnout do slovníku,
   Gemini promptu v `analyzer.py` předat instrukci, v jakém jazyce psát
   shrnutí a přepis.
-- [ ] **Kategorie do konfigurace** — kategorie (`koupání`, `turistika`, …)
+  *(hotovo: `i18n.py` – katalog textů cs/en, dvoujazyčné Gemini prompty,
+  přeložená mapa i zdůvodnění duplicit; přepis zůstává v jazyce videa.
+  Anglické aliasy příkazů `/search` a `/dedup` fungují vždy.)*
+- [x] **Kategorie do konfigurace** — kategorie (`koupání`, `turistika`, …)
   jsou natvrdo v promptu a mapě. Vytáhnout do env variable
   (`CATEGORIES=swimming,hiking,food,...`) nebo config souboru; prompt i
   filtry na mapě je načtou odtud.
+  *(hotovo: `CATEGORIES` v `i18n.py`, výchozí sada podle jazyka; poslední
+  kategorie je záchytná. Mapa přiděluje barvy podle pořadí v konfiguraci,
+  kategorie mimo konfiguraci – starší data – zobrazí šedě.)*
 
 ---
 

@@ -7,6 +7,14 @@ a při prvním veřejném release se překlopí do verze.
 ## Nevydáno
 
 ### Přidáno
+- Jazyk bota do konfigurace: `BOT_LANGUAGE` (`en` výchozí / `cs`) řídí odpovědi bota,
+  texty mapy, jazyk Gemini shrnutí/tagů i zdůvodnění duplicit (`i18n.py`).
+  Přepis zvuku zůstává v původním jazyce videa. Anglické aliasy příkazů
+  `/search` a `/dedup` fungují nezávisle na jazyce.
+- Kategorie do konfigurace: `CATEGORIES` (čárkou oddělený seznam, výchozí
+  sada podle jazyka). Poslední kategorie je záchytná; mapa přiděluje barvy
+  podle pořadí v konfiguraci a neznámé kategorie zobrazí šedě.
+- Anglické README jako výchozí (`README.md`), česká verze v `README.cs.md`.
 - Podpora TikTok (včetně `vm.tiktok.com` share linků) a YouTube Shorts
   (včetně `youtu.be`). Sloupec Zdroj nově nabývá hodnot `tiktok` a
   `youtube`; cookies se pro YouTube používají stejně jako pro Instagram
