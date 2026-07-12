@@ -7,7 +7,7 @@ a při prvním veřejném release se překlopí do verze.
 ## Nevydáno
 
 ### Přidáno
-- Jazyk bota do konfigurace: `BOT_LANGUAGE` (`cs`/`en`) řídí odpovědi bota,
+- Jazyk bota do konfigurace: `BOT_LANGUAGE` (`en` výchozí / `cs`) řídí odpovědi bota,
   texty mapy, jazyk Gemini shrnutí/tagů i zdůvodnění duplicit (`i18n.py`).
   Přepis zvuku zůstává v původním jazyce videa. Anglické aliasy příkazů
   `/search` a `/dedup` fungují nezávisle na jazyce.

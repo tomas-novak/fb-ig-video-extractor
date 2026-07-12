@@ -76,9 +76,9 @@ Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
 - `ANTHROPIC_API_KEY` — kontrola duplicitních míst příkazem `/zkontroluj`
 - `MAP_TOKEN` — ochrana mapy (bez něj je mapa veřejná)
 - `WEBHOOK_SECRET` — ověřování Telegram webhooků
-- `BOT_LANGUAGE` — jazyk odpovědí bota, mapy a AI shrnutí: `cs` (výchozí)
-  nebo `en`
-- `CATEGORIES` — vlastní kategorie oddělené čárkou (výchozí:
+- `BOT_LANGUAGE` — jazyk odpovědí bota, mapy a AI shrnutí: `en` (výchozí)
+  nebo `cs`. **Pro češtinu je potřeba nastavit `BOT_LANGUAGE=cs`.**
+- `CATEGORIES` — vlastní kategorie oddělené čárkou (výchozí pro `cs`:
   `koupání,turistika,jídlo,kultura,příroda,sport,zábava,hotel,jiné`).
   Poslední kategorie v seznamu je záchytná — použije se, když AI žádnou
   neurčí.

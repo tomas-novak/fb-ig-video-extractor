@@ -6,9 +6,9 @@ from i18n import (DEFAULT_CATEGORIES, MESSAGES, _parse_categories,
 
 
 class TestParseLanguage:
-    def test_prazdna_hodnota_znamena_cestinu(self):
-        assert _parse_language("") == "cs"
-        assert _parse_language("  ") == "cs"
+    def test_prazdna_hodnota_znamena_anglictinu(self):
+        assert _parse_language("") == "en"
+        assert _parse_language("  ") == "en"
 
     def test_podporovane_jazyky(self):
         assert _parse_language("cs") == "cs"
@@ -50,8 +50,8 @@ class TestMessages:
                 distance=1.234, reason="test")
             assert "1.2" in text
 
-    def test_t_vraci_cesky_text_ve_vychozim_nastaveni(self):
-        # conftest nastavuje BOT_LANGUAGE="" -> cs
+    def test_t_vraci_cesky_text_v_testech(self):
+        # conftest nastavuje BOT_LANGUAGE=cs (fixtures jsou české)
         assert "Uloženo" in t("saved", name="X", category="k", tags="t",
                               summary="s", maps_url="u", precision="", group_note="")
 

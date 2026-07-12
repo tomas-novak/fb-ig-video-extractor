@@ -57,7 +57,7 @@ GEMINI_API_KEY=           # Google AI Studio
 GOOGLE_SHEETS_ID=         # ID Google Sheetu
 GOOGLE_SERVICE_ACCOUNT=   # JSON service account (base64 nebo path)
 WEBHOOK_SECRET=           # volitelný secret pro ověření Telegram webhooků
-BOT_LANGUAGE=             # jazyk odpovědí bota, mapy a AI shrnutí: cs (výchozí) / en
+BOT_LANGUAGE=             # jazyk odpovědí bota, mapy a AI shrnutí: en (výchozí) / cs
 CATEGORIES=               # vlastní kategorie oddělené čárkou; poslední = záchytná
 ```
 
@@ -84,7 +84,7 @@ Výchozí (cs): `koupání` · `turistika` · `jídlo` · `kultura` · `přírod
 
 Kategorie jsou konfigurovatelné env proměnnou `CATEGORIES` (viz `i18n.py`);
 poslední v seznamu je záchytná. Jazyk odpovědí bota, mapy a Gemini shrnutí
-řídí `BOT_LANGUAGE` (`cs`/`en`); přepis zvuku zůstává v jazyce videa.
+řídí `BOT_LANGUAGE` (`en` výchozí / `cs`); přepis zvuku zůstává v jazyce videa.
 
 ## Vývoj
 

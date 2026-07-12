@@ -1,6 +1,6 @@
 """Jazyk bota (BOT_LANGUAGE) a konfigurovatelné kategorie (CATEGORIES).
 
-BOT_LANGUAGE: `cs` (výchozí) nebo `en` – jazyk odpovědí bota, mapy,
+BOT_LANGUAGE: `en` (výchozí) nebo `cs` – jazyk odpovědí bota, mapy,
 Gemini shrnutí a zdůvodnění duplicit. Přepis mluveného slova (transcript)
 zůstává vždy v původním jazyce videa.
 
@@ -18,7 +18,7 @@ def _parse_language(raw: str) -> str:
     spadnout při startu než tiše odpovídat jiným jazykem, než uživatel čeká."""
     lang = raw.strip().lower()
     if not lang:
-        return "cs"
+        return "en"
     if lang not in SUPPORTED_LANGUAGES:
         raise ValueError(
             f"BOT_LANGUAGE={raw!r} není podporovaný jazyk – "

@@ -80,7 +80,7 @@ Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
 - `MAP_TOKEN` — map protection (without it the map is public)
 - `WEBHOOK_SECRET` — Telegram webhook verification
 - `BOT_LANGUAGE` — language of bot replies, the map and AI summaries:
-  `cs` (default) or `en`
+  `en` (default) or `cs`
 - `CATEGORIES` — custom comma-separated categories (default for `en`:
   `swimming,hiking,food,culture,nature,sport,fun,hotel,other`). The last
   category in the list is the catch-all — used when the AI can't decide.
