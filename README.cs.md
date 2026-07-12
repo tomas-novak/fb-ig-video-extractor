@@ -78,10 +78,13 @@ Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
 - `WEBHOOK_SECRET` — ověřování Telegram webhooků
 - `BOT_LANGUAGE` — jazyk odpovědí bota, mapy a AI shrnutí: `en` (výchozí)
   nebo `cs`. **Pro češtinu je potřeba nastavit `BOT_LANGUAGE=cs`.**
-- `CATEGORIES` — vlastní kategorie oddělené čárkou (výchozí pro `cs`:
-  `koupání,turistika,jídlo,kultura,příroda,sport,zábava,hotel,jiné`).
-  Poslední kategorie v seznamu je záchytná — použije se, když AI žádnou
-  neurčí.
+  Přepis zvuku zůstává vždy v původním jazyce videa.
+- `CATEGORIES` — vlastní kategorie oddělené čárkou. Výchozí sada se řídí
+  podle `BOT_LANGUAGE`: pro `cs` je to
+  `koupání,turistika,jídlo,kultura,příroda,sport,zábava,hotel,jiné`, pro
+  `en` anglické ekvivalenty — přepnutím jazyka se tedy mění i výchozí
+  kategorie. Poslední kategorie v seznamu je záchytná — použije se, když
+  AI žádnou neurčí.
 
 ### 5. Nasazení
 
