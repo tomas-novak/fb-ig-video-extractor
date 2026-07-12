@@ -21,8 +21,8 @@ def _parse_language(raw: str) -> str:
         return "en"
     if lang not in SUPPORTED_LANGUAGES:
         raise ValueError(
-            f"BOT_LANGUAGE={raw!r} není podporovaný jazyk – "
-            f"povolené hodnoty: {', '.join(SUPPORTED_LANGUAGES)}"
+            f"BOT_LANGUAGE={raw!r} is not a supported language – "
+            f"allowed values: {', '.join(SUPPORTED_LANGUAGES)}"
         )
     return lang
 
@@ -44,7 +44,7 @@ def _parse_categories(raw: str, lang: str) -> list[str]:
         return list(DEFAULT_CATEGORIES[lang])
     duplicates = {c for c in cats if cats.count(c) > 1}
     if duplicates:
-        raise ValueError(f"CATEGORIES obsahuje duplicitní položky: {sorted(duplicates)}")
+        raise ValueError(f"CATEGORIES contains duplicate items: {sorted(duplicates)}")
     return cats
 
 
@@ -127,6 +127,8 @@ MESSAGES = {
         # Dedup (Claude verdikty)
         "dedup_reason_place_id": "Stejné místo podle Google Maps (place_id).",
         "dedup_reason_unparseable": "neparsovatelná odpověď: {raw}",
+        # Instrukce pro Claude, v jakém jazyce psát zdůvodnění – vkládá se
+        # do českého promptu v dedup.py, proto je česky v obou katalozích.
         "dedup_reason_lang": "česky",
 
         # Export
@@ -200,6 +202,8 @@ MESSAGES = {
 
         "dedup_reason_place_id": "Same place according to Google Maps (place_id).",
         "dedup_reason_unparseable": "unparseable response: {raw}",
+        # Záměrně česky („anglicky“, ne "in English") – jde o instrukci
+        # uvnitř českého promptu pro Claude v dedup.py, ne o text pro uživatele.
         "dedup_reason_lang": "anglicky",
 
         "export_doc_name": "Trips",

@@ -20,7 +20,7 @@ def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
         if not os.getenv("ANTHROPIC_API_KEY"):
-            raise RuntimeError("Chybí proměnná prostředí ANTHROPIC_API_KEY")
+            raise RuntimeError("Missing ANTHROPIC_API_KEY environment variable")
         _client = anthropic.Anthropic()
     return _client
 

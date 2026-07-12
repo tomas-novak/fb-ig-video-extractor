@@ -24,7 +24,7 @@ def _get_model():
     if _model is None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise RuntimeError("Chybí proměnná prostředí GEMINI_API_KEY")
+            raise RuntimeError("Missing GEMINI_API_KEY environment variable")
         genai.configure(api_key=api_key)
         _model = genai.GenerativeModel("gemini-2.5-flash")
     return _model

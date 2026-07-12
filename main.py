@@ -32,8 +32,8 @@ def _parse_allowed_users(raw: str) -> set[int]:
     invalid = [t for t in tokens if not t.isdigit()]
     if invalid:
         raise ValueError(
-            f"TELEGRAM_ALLOWED_USERS obsahuje neplatné položky {invalid} – "
-            "očekávám číselná Telegram user ID oddělená čárkou (zjistíš příkazem /id)"
+            f"TELEGRAM_ALLOWED_USERS contains invalid items {invalid} – "
+            "expected comma-separated numeric Telegram user IDs (get yours via /id)"
         )
     return {int(t) for t in tokens}
 
@@ -60,11 +60,11 @@ MAP_VIEW_TOKEN = os.getenv("MAP_VIEW_TOKEN", "")
 
 # Fail closed: view token bez hlavního tokenu by mapu tiše nechal úplně veřejnou.
 if MAP_VIEW_TOKEN and not MAP_TOKEN:
-    raise ValueError("MAP_VIEW_TOKEN je nastaven bez MAP_TOKEN – mapa by zůstala "
-                     "veřejná. Nastav i MAP_TOKEN, nebo MAP_VIEW_TOKEN odstraň.")
+    raise ValueError("MAP_VIEW_TOKEN is set without MAP_TOKEN – the map would stay "
+                     "public. Set MAP_TOKEN as well, or remove MAP_VIEW_TOKEN.")
 if MAP_VIEW_TOKEN and MAP_VIEW_TOKEN == MAP_TOKEN:
-    print("[config] VAROVÁNÍ: MAP_VIEW_TOKEN je shodný s MAP_TOKEN – sdílený "
-          "odkaz má plná práva včetně mazání. Zvol jinou hodnotu.")
+    print("[config] WARNING: MAP_VIEW_TOKEN equals MAP_TOKEN – the shared link "
+          "has full permissions including deletion. Pick a different value.")
 
 
 def _token_matches(supplied: str, expected: str) -> bool:
@@ -111,10 +111,10 @@ async def lifespan(app: FastAPI):
         try:
             await set_webhook(url)
         except Exception as e:
-            print(f"[webhook] auto-registrace selhala: {type(e).__name__}: {e}")
+            print(f"[webhook] auto-registration failed: {type(e).__name__}: {e}")
     else:
-        print("[webhook] PUBLIC_URL ani RAILWAY_PUBLIC_DOMAIN není nastaveno – "
-              "webhook zaregistruj ručně: python main.py --set-webhook <url>")
+        print("[webhook] neither PUBLIC_URL nor RAILWAY_PUBLIC_DOMAIN is set – "
+              "register the webhook manually: python main.py --set-webhook <url>")
     yield
 
 

@@ -29,7 +29,7 @@ class TestParseCategories:
         assert _parse_categories("beach, food ,other", "en") == ["beach", "food", "other"]
 
     def test_duplicitni_kategorie_spadnou_pri_startu(self):
-        with pytest.raises(ValueError, match="duplicitní"):
+        with pytest.raises(ValueError, match="duplicate"):
             _parse_categories("beach,food,beach", "en")
 
     def test_vychozi_sada_se_nesdili_mezi_volanimi(self):
@@ -68,3 +68,47 @@ class TestMapRender:
         assert "__MAP_CATEGORIES__" not in html
         assert '<html lang="cs">' in html
         assert '"koupání"' in html
+
+
+class TestEnglishRuntime:
+    """Anglická větev t() cest za běhu – conftest jinak fixuje cs.
+
+    Moduly čtou jazyk přes t() z globálu i18n.LANG, stačí ho tedy
+    monkeypatchnout (map_page a analyzer si LANG importují do vlastního
+    namespace, patchuje se jim zvlášť)."""
+
+    @pytest.fixture(autouse=True)
+    def _english(self, monkeypatch):
+        import i18n
+        monkeypatch.setattr(i18n, "LANG", "en")
+
+    def test_friendly_error_anglicky(self):
+        from main import friendly_error
+        assert "photo" in friendly_error("ERROR: No video formats found!")
+        assert "can't process" in friendly_error("Unsupported URL: https://x.com/...")
+        msg = friendly_error("video is too long (12 min, limit 10 min)")
+        assert msg.startswith("⏱️") and "short videos" in msg
+        assert friendly_error("X" * 500).startswith("❌ Something went wrong")
+
+    def test_duration_error_anglicky(self):
+        from extractor import duration_error
+        assert "too long" in duration_error({"duration": 720})
+
+    def test_zpravy_bota_anglicky(self):
+        assert "Your Telegram user ID: 42" in t("id_reply", user_id=42)
+        assert "Saved!" in t("saved", name="X", category="food", tags="a",
+                             summary="S", maps_url="U", precision="", group_note="")
+
+    def test_render_map_anglicky(self, monkeypatch):
+        import map_page
+        monkeypatch.setattr(map_page, "LANG", "en")
+        html = map_page.render_map()
+        assert '<html lang="en">' in html
+        assert "__MAP_" not in html
+
+    def test_system_prompt_anglicky(self, monkeypatch):
+        import analyzer
+        monkeypatch.setattr(analyzer, "LANG", "en")
+        sp = analyzer.system_prompt()
+        assert sp.startswith("You are an AI assistant")
+        assert "__" not in sp
