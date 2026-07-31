@@ -5,14 +5,15 @@
 # delší dobu neozve. Tenhle skript ho pravidelně potvrdí – i když má server
 # statickou IP, stojí to nic a ušetří to výpadek webhooku.
 #
-# Instalace (jako uživatel fbigbot nebo root):
-#   sudo cp deploy/duckdns-refresh.sh /opt/fbig-bot/duckdns-refresh.sh
-#   sudo chmod +x /opt/fbig-bot/duckdns-refresh.sh
+# Spouští se z místa, kde leží v repu, aby ho update.sh (git pull) udržoval
+# aktuální – kopie jinam by zůstala navždy taková, jaká byla při instalaci.
+#
+# Instalace:
 #   echo "DUCKDNS_DOMAIN=tvuj-nazev" | sudo tee /etc/duckdns.conf
 #   echo "DUCKDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" | sudo tee -a /etc/duckdns.conf
 #   sudo chmod 600 /etc/duckdns.conf
 #   sudo crontab -e
-#     */5 * * * * /opt/fbig-bot/duckdns-refresh.sh >/dev/null 2>&1
+#     */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null 2>&1
 #
 # Podrobný postup: docs/migration/01-phase-a-vps.md
 

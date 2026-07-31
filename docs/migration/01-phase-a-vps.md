@@ -21,7 +21,8 @@ IP adresa nestačí. Pokud vlastní doménu nemáš, DuckDNS ji dá zdarma.
 1. Otevři [duckdns.org](https://www.duckdns.org), přihlas se (GitHub/Google).
 2. Do pole „domains" napiš název, např. `mujbot`, a dej **add domain**.
    Vznikne `mujbot.duckdns.org`.
-3. Do pole `current ip` vyplň IP serveru (`38.7.145.121`) a ulož.
+3. Do pole `current ip` vyplň veřejnou IP svého serveru a ulož.
+   Zjistíš ji na serveru příkazem `curl -s ifconfig.me`.
 4. Nahoře na stránce si zkopíruj **token** — bude potřeba v kroku 7.
 
 Ověření (na serveru), že DNS už platí:
@@ -204,21 +205,21 @@ Když `/health` odpoví přes HTTPS, je hotová ta podstatná část.
 
 DuckDNS nechává neaktivní domény vypršet. Cron to jednou za pět minut potvrdí:
 
-```bash
-cp /opt/fbig-bot/deploy/duckdns-refresh.sh /opt/fbig-bot/duckdns-refresh.sh
-chmod +x /opt/fbig-bot/duckdns-refresh.sh
+Skript se spouští rovnou z `deploy/`, aby ho `update.sh` (git pull) udržoval
+aktuální — kopie jinam by zůstala navždy taková, jaká byla při instalaci.
 
+```bash
 cat > /etc/duckdns.conf <<'EOF'
 DUCKDNS_DOMAIN=mujbot
 DUCKDNS_TOKEN=sem-vloz-token-z-duckdns
 EOF
 chmod 600 /etc/duckdns.conf
 
-/opt/fbig-bot/duckdns-refresh.sh      # musí vypsat "DuckDNS OK: ..."
+/opt/fbig-bot/deploy/duckdns-refresh.sh      # musí vypsat "DuckDNS OK: ..."
 
 crontab -e
 # přidat řádek:
-# */5 * * * * /opt/fbig-bot/duckdns-refresh.sh >/dev/null 2>&1
+# */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null 2>&1
 ```
 
 ---
@@ -341,6 +342,13 @@ vyžadují častěji. Diagnostika: `https://mujbot.duckdns.org/debug?token=<MAP_
 
 ## 12. Poznámka mimo rozsah migrace
 
-Server nemá firewall a dashboard na portu **8765** je dostupný z internetu.
-S botem to nesouvisí, ale stojí za zvážení omezit přístup ve firewallu
-u poskytovatele nebo službu přesunout na `127.0.0.1`.
+Bot sám je po dokončení návodu schovaný za Caddy (`HOST=127.0.0.1`), ale
+ostatní služby na serveru tak nastavené být nemusí. Vyplatí se projít, co
+je z internetu dostupné:
+
+```bash
+ss -tlnp | grep -v '127.0.0.1\|::1'
+```
+
+Co nemá být veřejné, patří buď za `127.0.0.1`, nebo za firewall
+u poskytovatele — server sám žádný nastavený nemá.

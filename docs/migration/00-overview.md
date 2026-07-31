@@ -51,7 +51,7 @@ To dělá celý přesun podstatně jednodušší: nemigrují se žádná data.
 | Porty 80 / 443 / 8000 | volné |
 | Reverse proxy | žádná |
 | Firewall | na serveru žádný (ufw/iptables chybí) |
-| Ostatní služby | Hermes (~425 MiB RAM), dashboard na 8765, lokální PostgreSQL |
+| Ostatní služby | jiná dlouhoběžící služba (~425 MiB RAM) a lokální PostgreSQL |
 
 Dvě věci z toho plynou přímo:
 
