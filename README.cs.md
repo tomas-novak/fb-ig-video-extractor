@@ -45,7 +45,7 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 - Google Places API (přesné souřadnice + odkazy na mapy)
 - Claude Haiku (posuzování duplicitních míst)
 - Google Sheets (databáze míst)
-- FastAPI + Railway (backend hosting)
+- FastAPI (backend, self-hosted na VPS)
 - Leaflet + OpenStreetMap (mapa)
 
 ## Nastavení — vlastní instance (~15 minut, vše zdarma)
@@ -88,9 +88,13 @@ Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
 
 ### 5. Nasazení
 
-**Railway:** nové Project → Deploy from GitHub repo (fork tohoto repa) →
-vlož proměnné z `.env.example` → Generate Domain. Webhook se zaregistruje
-automaticky.
+Bot potřebuje běžet jako trvale spuštěná služba — zpracování videa trvá
+desítky sekund až minuty, takže serverless funkce (Vercel apod.) nestačí.
+
+**VPS (doporučeno):** podrobný návod krok za krokem včetně HTTPS zdarma
+najdeš v [docs/migration/01-phase-a-vps.md](docs/migration/01-phase-a-vps.md).
+Ve zkratce: Python venv + systemd služba z `deploy/fbig-bot.service`
++ Caddy jako reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
@@ -131,7 +135,7 @@ Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
 
 ## Známé limity
 
-- **Instagram vyžaduje cookies.** Z datacenter IP (Railway apod.) Instagram
+- **Instagram vyžaduje cookies.** Z datacenter IP (VPS apod.) Instagram
   anonymní stahování většinou blokuje („login required"). Řešení: exportuj
   cookies přihlášeného účtu (rozšíření typu *Get cookies.txt*) a nastav
   `INSTAGRAM_COOKIES` (obsah souboru) nebo `COOKIES_FILE` (cesta k souboru).

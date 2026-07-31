@@ -47,7 +47,7 @@ phone without filling anything in by hand.
 - Google Places API (precise coordinates + map links)
 - Claude Haiku (judging duplicate places)
 - Google Sheets (place database)
-- FastAPI + Railway (backend hosting)
+- FastAPI (backend, self-hosted on a VPS)
 - Leaflet + OpenStreetMap (map)
 
 ## Setup — your own instance (~15 minutes, all free)
@@ -91,9 +91,14 @@ Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
 
 ### 5. Deployment
 
-**Railway:** new Project → Deploy from GitHub repo (fork of this repo) →
-paste the variables from `.env.example` → Generate Domain. The webhook
-registers automatically.
+The bot needs to run as a long-lived service — processing one video takes
+tens of seconds up to a few minutes, so request-scoped serverless functions
+(Vercel and friends) won't work.
+
+**VPS (recommended):** a full step-by-step guide, including free HTTPS, is in
+[docs/migration/01-phase-a-vps.md](docs/migration/01-phase-a-vps.md) (written
+in Czech). In short: a Python venv plus the systemd unit from
+`deploy/fbig-bot.service`, with Caddy as the reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
@@ -135,7 +140,7 @@ request.
 
 ## Known limitations
 
-- **Instagram requires cookies.** From datacenter IPs (Railway etc.)
+- **Instagram requires cookies.** From datacenter IPs (any VPS or PaaS)
   Instagram usually blocks anonymous downloads ("login required"). Solution:
   export cookies of a logged-in account (an extension like *Get cookies.txt*)
   and set `INSTAGRAM_COOKIES` (file content) or `COOKIES_FILE` (file path).
