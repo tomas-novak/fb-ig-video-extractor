@@ -22,12 +22,6 @@ tvuj-nazev.duckdns.org {
 	# takže jediná cesta zvenku vede přes Caddy.
 	reverse_proxy 127.0.0.1:8000
 
-	# Stahování a analýza videa trvá běžně desítky sekund; webhook od Telegramu
-	# sice odpovídá hned, ale /map a /export nad větší tabulkou chvíli počkají.
-	timeouts {
-		read_body 60s
-	}
-
 	encode gzip
 
 	log {

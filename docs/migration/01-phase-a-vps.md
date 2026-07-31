@@ -66,11 +66,10 @@ apt install -y caddy
 Bot poběží pod vlastním uživatelem bez práv navíc:
 
 ```bash
-useradd --system --create-home --home-dir /opt/fbig-bot --shell /usr/sbin/nologin fbigbot
+# Bez --create-home: adresář musí zůstat neexistující, aby do něj šlo klonovat.
+useradd --system --home-dir /opt/fbig-bot --shell /usr/sbin/nologin fbigbot
 
-git clone https://github.com/tomas-novak/fb-ig-video-extractor.git /tmp/fbig-clone
-mv /tmp/fbig-clone/* /tmp/fbig-clone/.git /opt/fbig-bot/
-rm -rf /tmp/fbig-clone
+git clone https://github.com/tomas-novak/fb-ig-video-extractor.git /opt/fbig-bot
 chown -R fbigbot:fbigbot /opt/fbig-bot
 ```
 

@@ -709,5 +709,7 @@ if __name__ == "__main__":
         import uvicorn
         # HOST=127.0.0.1 při nasazení za reverse proxy (Caddy/nginx) – aplikace pak
         # není dostupná přímo zvenku. Výchozí 0.0.0.0 kvůli Dockeru a kontejnerům.
-        uvicorn.run("main:app", host=os.getenv("HOST", "0.0.0.0"),
-                    port=int(os.getenv("PORT", 8000)), reload=False)
+        # "or" místo výchozí hodnoty v getenv: prázdná proměnná v .env (HOST=)
+        # se musí chovat jako nenastavená, jinak by int("") shodilo start.
+        uvicorn.run("main:app", host=os.getenv("HOST") or "0.0.0.0",
+                    port=int(os.getenv("PORT") or 8000), reload=False)
