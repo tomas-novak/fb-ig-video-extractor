@@ -9,11 +9,23 @@ Migrace je stavěná tak, aby šla kdykoliv vzít zpět. Existují dvě nezávis
 
 Tohle je ten důležitý scénář: bot na VPS zlobí a potřebuješ, aby zase fungoval.
 
-**Předpoklad:** služba na Railway nebyla smazaná. Proto se maže až po několika
-dnech bezproblémového provozu na VPS.
+**Předpoklad:** služba na Railway nebyla smazaná (podle runbooku je po
+přepnutí jen zastavená). Proto se maže až po několika dnech bezproblémového
+provozu na VPS.
 
-O tom, kam Telegram doručuje zprávy, rozhoduje jediné volání `setWebhook`.
-Návrat je tedy přeregistrování zpět na Railway:
+**1. Zastav bota na VPS.** Nejdřív, aby si při restartu nevzal webhook zpět:
+
+```bash
+systemctl stop fbig-bot
+systemctl disable fbig-bot
+```
+
+**2. Nastartuj službu na Railway** (dashboard → Deploy / obnovit deployment).
+
+Jakmile naběhne, zaregistruje si webhook sama podle `RAILWAY_PUBLIC_DOMAIN` —
+v drtivé většině případů je tím rollback hotový a krok 3 se dá přeskočit.
+
+**3. Jen když se webhook nezaregistroval sám** (ověříš níže), nastav ho ručně:
 
 ```bash
 curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<railway-domena>/webhook"
@@ -25,20 +37,13 @@ Když je nastavený `WEBHOOK_SECRET`, přidej ho:
 curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<railway-domena>/webhook&secret_token=<SECRET>"
 ```
 
-Pak zastav službu na VPS, aby si webhook nevzala zpátky při restartu:
-
-```bash
-systemctl stop fbig-bot
-systemctl disable fbig-bot
-```
-
-Ověření:
+**4. Ověření:**
 
 ```bash
 curl -s "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 ```
 
-Bot na Railway začne odpovídat okamžitě.
+Musí ukazovat railwayovou URL. Bot pak odpovídá okamžitě.
 
 ### Proč se tím nic neztratí
 
@@ -46,16 +51,29 @@ Ve Fázi A se **nemigrují žádná data**. Obě instance — Railway i VPS — 
 a zapisují do stejného Google Sheetu. Ať běží kterákoliv, data jsou stejná
 a kompletní.
 
-### Jedno pravidlo
+### Jedno pravidlo — platí na obě strany
 
-Webhook smí mít registrovaný **jen jedna instance**. Telegram doručuje vždy
-na naposledy nastavenou adresu, takže se instance nemůžou „přetahovat" —
-ale znamená to, že po přepnutí zpět je nutné službu na VPS opravdu zastavit.
-Jinak by si při příštím restartu (`Restart=always`) webhook vzala zpět, protože
-si ho registruje sama při startu podle `PUBLIC_URL`.
+Webhook smí mít registrovaný **jen jedna instance**, a to ta, která si ho
+zaregistrovala jako poslední. Obě instance si ho přitom nárokují samy při
+každém startu: VPS podle `PUBLIC_URL`, Railway podle `RAILWAY_PUBLIC_DOMAIN`.
 
-Alternativa bez zastavování služby: vymazat `PUBLIC_URL` v `/opt/fbig-bot/.env`
-a restartovat. Bot pak běží, ale webhook si nenárokuje.
+Prakticky to znamená, že **běžící instance navíc je tikající bomba** — při
+jejím nejbližším restartu se provoz tiše přesune k ní. Bot bude dál
+odpovídat, takže si toho nemusíš všimnout; jen zápisy začnou chodit odjinud.
+
+Ať přepínáš kterýmkoliv směrem, tu druhou instanci vždy zastav:
+
+| Provoz má obsluhovat | Zastav |
+|---|---|
+| VPS | službu na Railway (dashboard → pauza / Remove Deployment) |
+| Railway | `systemctl stop fbig-bot && systemctl disable fbig-bot` |
+
+Alternativa bez zastavování služby na VPS: vymazat `PUBLIC_URL`
+v `/opt/fbig-bot/.env` a restartovat. Bot pak běží, ale webhook si
+nenárokuje.
+
+Ani v jednom směru se nic nemaže — zastavená instance jde kdykoliv nastartovat
+zpátky.
 
 ---
 

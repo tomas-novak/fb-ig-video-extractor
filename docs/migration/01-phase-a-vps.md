@@ -228,7 +228,7 @@ crontab -e
 
 Tohle je jediný okamžik, kdy se provoz skutečně přesune. Telegram doručuje
 zprávy vždy jen na **naposledy zaregistrovanou** adresu, takže Railway tím
-automaticky přestane dostávat zprávy (běžet ale může dál jako záloha).
+přestane zprávy dostávat.
 
 ```bash
 sudo -u fbigbot nano /opt/fbig-bot/.env
@@ -248,6 +248,21 @@ curl -s "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 
 Očekává se nová URL, `pending_update_count` blízko nule a prázdné
 `last_error_message`.
+
+### Railway hned zastav (ale nemaž)
+
+Instance na Railway si webhook registruje sama při startu úplně stejně jako
+ta na VPS — jen podle `RAILWAY_PUBLIC_DOMAIN` místo `PUBLIC_URL`. Kdyby
+Railway zůstalo běžet, **jakýkoliv jeho restart** (redeploy, pád, údržba
+platformy) by si provoz tiše vzal zpátky. Bot by dál odpovídal, takže by
+sis toho nemusel všimnout — jen by zápisy chodily ze staré instance.
+
+V Railway dashboardu proto službu zastav (Settings → Remove Deployment,
+nebo pauza), ale **projekt ani proměnné nemaž**. Rollback tím zůstává
+otázkou jednoho startu.
+
+Ověření, že Railway opravdu stojí: restartuj bota na VPS a znovu se podívej
+na `getWebhookInfo` — URL musí zůstat ta tvoje.
 
 ---
 

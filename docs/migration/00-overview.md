@@ -93,6 +93,8 @@ Fáze B je volitelná — po Fázi A je systém plně funkční.
 - [ ] Služba `fbig-bot` běží, limity paměti platí
 - [ ] Caddy běží, certifikát vydaný, `/health` odpovídá přes HTTPS
 - [ ] Webhook přeregistrovaný na novou adresu
+- [ ] **Railway zastavené** (ne smazané) — běžící instance by si webhook
+      při svém příštím restartu vzala zpátky
 - [ ] Otestované: `/id`, reálné video, `/hledej`, `/zkontroluj`, mapa
 - [ ] Vyzkoušený rollback (webhook zpět na Railway a zase na VPS)
 - [ ] Po několika dnech provozu: **smazaná služba na Railway**
