@@ -1,6 +1,6 @@
-# Konfigurace pro nasazení na Railway (railway.com). Detekuje se automaticky
-# při připojení tohoto repa jako Railway projektu. Alternativy: vlastní VPS
-# (docs/deploy-vps.md) nebo Docker (docker-compose.yml) - viz README.
+# Configuration for deploying to Railway (railway.com). It is detected
+# automatically when this repo is connected as a Railway project. Alternatives:
+# your own VPS (docs/deploy-vps.md) or Docker (docker-compose.yml) - see README.
 
 [build]
 builder = "nixpacks"

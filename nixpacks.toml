@@ -1,4 +1,4 @@
-# Railway/Nixpacks: přidej ffmpeg (vč. ffprobe) k auto-detekovanému Pythonu.
-# "..." zachová automaticky zjištěné balíčky a jen přidá ffmpeg.
+# Railway/Nixpacks: add ffmpeg (including ffprobe) to the auto-detected Python.
+# "..." keeps the automatically detected packages and only appends ffmpeg.
 [phases.setup]
 nixPkgs = ["...", "ffmpeg"]

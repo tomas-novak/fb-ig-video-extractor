@@ -1,25 +1,25 @@
-"""Pomocný skript: vygeneruje railway-variables.local.txt pro rychlé vložení
-do Railway (dashboard -> Variables -> Raw Editor). Tento soubor se
-NEcommituje (je v .gitignore).
+"""Helper script: generates railway-variables.local.txt for quick pasting into
+Railway (dashboard -> Variables -> Raw Editor). That file is NOT committed
+(it is in .gitignore).
 
-Projde všechny proměnné z lokálního .env automaticky, takže nezastarává,
-když se v .env.example objeví nová proměnná. Výjimky:
-- GOOGLE_SERVICE_ACCOUNT_FILE (cesta k souboru, jen pro lokální vývoj) se
-  převede na GOOGLE_SERVICE_ACCOUNT_JSON (obsah souboru na jeden řádek).
-  Pokud soubor na dané cestě neexistuje (např. nezměněný placeholder
-  z .env.example), nebo je GOOGLE_SERVICE_ACCOUNT_JSON v .env už přímo
-  vyplněné (typicky když je .env zkopírované ze serveru), použije se to.
-- HOST, PORT, PUBLIC_URL a FFMPEG_LOCATION se přeskakují - jsou to buď
-  hodnoty specifické pro tenhle konkrétní počítač (FFMPEG_LOCATION by na
-  Railway ukazovala na neexistující cestu a rozbila by ffmpeg, i když ho
-  nixpacks.toml nainstaluje), nebo je Railway řeší samo (PORT, a doménu
-  poskytuje přes RAILWAY_PUBLIC_DOMAIN, které main.py používá automaticky,
-  pokud PUBLIC_URL není nastavené). COOKIES_FILE je taky lokální cesta, ale
-  na rozdíl od FFMPEG_LOCATION se nepřeskakuje - extractor.py._resolve_cookies()
-  ji ověřuje přes os.path.exists() a bez problému spadne zpět na
-  INSTAGRAM_COOKIES, takže nevalidní cesta z lokálu nic nerozbije.
-- Víceřádkové hodnoty (typicky INSTAGRAM_COOKIES) se zapíší v uvozovkách,
-  ať se při vložení do Railway nerozpadnou na samostatné řádky.
+It walks all the variables from the local .env automatically, so it does not go
+stale when a new variable appears in .env.example. Exceptions:
+- GOOGLE_SERVICE_ACCOUNT_FILE (a file path, for local development only) is
+  converted to GOOGLE_SERVICE_ACCOUNT_JSON (the file contents on a single line).
+  If the file at that path does not exist (e.g. an unchanged placeholder from
+  .env.example), or GOOGLE_SERVICE_ACCOUNT_JSON is already filled in directly in
+  .env (typically when .env was copied from the server), that value is used.
+- HOST, PORT, PUBLIC_URL and FFMPEG_LOCATION are skipped - they are either
+  values specific to this particular machine (on Railway FFMPEG_LOCATION would
+  point to a non-existent path and break ffmpeg, even though nixpacks.toml
+  installs it), or Railway handles them itself (PORT, and it provides the domain
+  via RAILWAY_PUBLIC_DOMAIN, which main.py uses automatically when PUBLIC_URL is
+  not set). COOKIES_FILE is a local path too, but unlike FFMPEG_LOCATION it is
+  not skipped - extractor.py._resolve_cookies() verifies it via os.path.exists()
+  and falls back to INSTAGRAM_COOKIES without trouble, so an invalid local path
+  breaks nothing.
+- Multi-line values (typically INSTAGRAM_COOKIES) are written in quotes so they
+  do not fall apart into separate lines when pasted into Railway.
 """
 import json
 import os
@@ -33,14 +33,14 @@ lines = []
 sa_file = env.get("GOOGLE_SERVICE_ACCOUNT_FILE")
 sa_json = env.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
-# Varovat vždy, nezávisle na tom, jestli GOOGLE_SERVICE_ACCOUNT_JSON něco
-# obsahuje - .env.example dodává obě proměnné rovnou vyplněné placeholdery,
-# takže "sa_json má hodnotu" samo o sobě neznamená, že je to skutečný obsah.
+# Always warn, regardless of whether GOOGLE_SERVICE_ACCOUNT_JSON contains
+# anything - .env.example ships both variables already filled with placeholders,
+# so "sa_json has a value" alone does not mean it is the real content.
 if sa_file and not os.path.exists(sa_file):
     print(
-        f"POZOR: GOOGLE_SERVICE_ACCOUNT_FILE={sa_file!r} neexistuje - zkontroluj, "
-        "že GOOGLE_SERVICE_ACCOUNT_JSON níž obsahuje skutečný obsah service "
-        "accountu, ne nevyplněný placeholder z .env.example.",
+        f"WARNING: GOOGLE_SERVICE_ACCOUNT_FILE={sa_file!r} does not exist - check "
+        "that GOOGLE_SERVICE_ACCOUNT_JSON below holds the real service account "
+        "content, not the unfilled placeholder from .env.example.",
         file=sys.stderr,
     )
 
@@ -51,8 +51,8 @@ elif sa_json:
     lines.append(f"GOOGLE_SERVICE_ACCOUNT_JSON={sa_json}")
 else:
     print(
-        "POZOR: GOOGLE_SERVICE_ACCOUNT_FILE ani GOOGLE_SERVICE_ACCOUNT_JSON "
-        "není v .env vyplněné.",
+        "WARNING: neither GOOGLE_SERVICE_ACCOUNT_FILE nor "
+        "GOOGLE_SERVICE_ACCOUNT_JSON is filled in in .env.",
         file=sys.stderr,
     )
 
@@ -66,4 +66,4 @@ for key, value in env.items():
 with open("railway-variables.local.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(lines) + "\n")
 
-print(f"Hotovo: railway-variables.local.txt ({len(lines)} promennych)")
+print(f"Done: railway-variables.local.txt ({len(lines)} variables)")
