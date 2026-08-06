@@ -1,12 +1,12 @@
-"""Jazyk bota (BOT_LANGUAGE) a konfigurovatelné kategorie (CATEGORIES).
+"""Bot language (BOT_LANGUAGE) and configurable categories (CATEGORIES).
 
-BOT_LANGUAGE: `en` (výchozí) nebo `cs` – jazyk odpovědí bota, mapy,
-Gemini shrnutí a zdůvodnění duplicit. Přepis mluveného slova (transcript)
-zůstává vždy v původním jazyce videa.
+BOT_LANGUAGE: `en` (default) or `cs` – the language of the bot's replies, the
+map, Gemini summaries and duplicate reasoning. The speech transcript always
+stays in the original language of the video.
 
-CATEGORIES: čárkou oddělený seznam kategorií; přepisuje výchozí sadu.
-Poslední kategorie v seznamu je záchytná („jiné“ / „other“) – použije se,
-když AI žádnou kategorii neurčí.
+CATEGORIES: comma-separated list of categories; overrides the default set.
+The last category in the list is the fallback ("jiné" / "other") – used when
+the AI does not determine any category.
 """
 import os
 
@@ -14,8 +14,8 @@ SUPPORTED_LANGUAGES = ("cs", "en")
 
 
 def _parse_language(raw: str) -> str:
-    """Fail closed: překlep v BOT_LANGUAGE je chyba konfigurace – radši
-    spadnout při startu než tiše odpovídat jiným jazykem, než uživatel čeká."""
+    """Fail closed: a typo in BOT_LANGUAGE is a configuration error – better to
+    crash at startup than to quietly reply in a different language than expected."""
     lang = raw.strip().lower()
     if not lang:
         return "en"
@@ -38,7 +38,7 @@ DEFAULT_CATEGORIES = {
 
 
 def _parse_categories(raw: str, lang: str) -> list[str]:
-    """Fail closed: duplicitní kategorie by rozbily filtry na mapě."""
+    """Fail closed: duplicate categories would break the filters on the map."""
     cats = [c.strip() for c in raw.split(",") if c.strip()]
     if not cats:
         return list(DEFAULT_CATEGORIES[lang])
@@ -49,13 +49,13 @@ def _parse_categories(raw: str, lang: str) -> list[str]:
 
 
 CATEGORIES = _parse_categories(os.getenv("CATEGORIES", ""), LANG)
-# Záchytná kategorie – poslední v seznamu (výchozí „jiné“ / „other“)
+# Fallback category – the last one in the list (default "jiné" / "other")
 FALLBACK_CATEGORY = CATEGORIES[-1]
 
 
 MESSAGES = {
     "cs": {
-        # Srozumitelné chybové hlášky (friendly_error)
+        # Human-friendly error messages (friendly_error)
         "err_photo": "📷 Tohle vypadá jako fotka nebo série fotek (carousel), ne video. "
                      "Pošli mi prosím odkaz na video nebo reel.",
         "err_login": "🔒 Nepodařilo se dostat k obsahu (Instagram nejspíš vyžaduje přihlášení "
@@ -72,21 +72,21 @@ MESSAGES = {
         "gemini_not_processed": "Gemini nezpracoval video (stav {state})",
         "gemini_no_text": "Gemini nevrátil žádný text k analýze ({error})",
 
-        # Webhook / příkazy
+        # Webhook / commands
         "id_reply": "🆔 Tvoje Telegram user ID: {user_id}",
         "private_bot": "⛔ Tento bot je soukromý. Pokud je tvůj, přidej si "
                        "svoje ID ({user_id}) do TELEGRAM_ALLOWED_USERS.",
-        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        # {cmd} is filled in by the caller via command_name() from the BOT_COMMANDS registry
         "search_usage": "Použití: {cmd} <text>\nnapř. {cmd} tobogán",
         "dedup_started": "🔍 Kontroluji duplicitní místa, chvíli počkej...",
-        # {commands} dosazuje help_text() z registru BOT_COMMANDS
+        # {commands} is filled in by help_text() from the BOT_COMMANDS registry
         "help": "📖 Co umím:\n\n"
                 "🎬 Pošli mi URL videa (Facebook/Instagram Reels, TikTok, "
                 "YouTube Shorts) – vytáhnu z něj místo a uložím ho do tabulky.\n"
                 "📎 Pošli mi svoji polohu a najdu uložená místa poblíž.\n\n"
                 "Příkazy:\n{commands}",
 
-        # Zpracování videa
+        # Video processing
         "dup_saved": "⚠️ Tohle video už máš uložené:\n📍 {name} ({date})",
         "dup_saved_other": "⚠️ Tohle video už máš uložené (pod jiným odkazem):\n"
                            "📍 {name} ({date})",
@@ -96,18 +96,18 @@ MESSAGES = {
         "saved": "✅ Uloženo!\n📍 {name}\n🏷️ {category} | {tags}\n\n"
                  "{summary}\n🧭 {maps_url}{precision}{group_note}",
 
-        # /hledej
+        # search command
         "search_none": "🔍 Pro „{query}“ jsem nic nenašel.",
         "search_header": "🔍 Nalezeno pro „{query}“:",
         "search_failed": "❌ Hledání selhalo: {error}",
 
-        # Místa poblíž
+        # Nearby places
         "nearby_none_saved": "Nemáš uložená žádná nenavštívená místa.",
         "nearby_nothing": "V okruhu {radius} km nemáš nic uloženo. Nejblíž je:\n"
                           "📍 {name} ({dist:.0f} km)\n🧭 {url}",
         "nearby_header": "📍 Nejbližší uložená místa ({count}):",
 
-        # /zkontroluj + slučování
+        # dedup command + merging
         "dedup_none": "✅ Žádné duplicitní místo jsem nenašel.",
         "dedup_suggestion": "🤔 Vypadá to na stejné místo:\n\n"
                             "1️⃣ {a_name} ({a_date})\n2️⃣ {b_name} ({b_date})\n\n"
@@ -126,12 +126,12 @@ MESSAGES = {
         "cb_error": "Chyba",
         "merge_failed": "❌ Sloučení selhalo: {error}",
 
-        # Dedup (Claude verdikty)
+        # Dedup (Claude verdicts)
         "dedup_reason_place_id": "Stejné místo podle Google Maps (place_id).",
         "dedup_reason_unparseable": "neparsovatelná odpověď: {raw}",
-        # Instrukce pro Claude, v jakém jazyce psát zdůvodnění – vkládá se
-        # do českého promptu v dedup.py, proto je česky v obou katalozích.
-        "dedup_reason_lang": "česky",
+        # Instruction for Claude telling it which language to write the reason in
+        # – inserted into the English prompt in dedup.py.
+        "dedup_reason_lang": "in Czech",
 
         # Export
         "export_doc_name": "Výlety",
@@ -158,10 +158,10 @@ MESSAGES = {
         "id_reply": "🆔 Your Telegram user ID: {user_id}",
         "private_bot": "⛔ This bot is private. If it's yours, add your "
                        "ID ({user_id}) to TELEGRAM_ALLOWED_USERS.",
-        # {cmd} dosazuje volající přes command_name() z registru BOT_COMMANDS
+        # {cmd} is filled in by the caller via command_name() from the BOT_COMMANDS registry
         "search_usage": "Usage: {cmd} <text>\ne.g. {cmd} waterslide",
         "dedup_started": "🔍 Checking for duplicate places, hang on...",
-        # {commands} dosazuje help_text() z registru BOT_COMMANDS
+        # {commands} is filled in by help_text() from the BOT_COMMANDS registry
         "help": "📖 What I can do:\n\n"
                 "🎬 Send me a video URL (Facebook/Instagram Reels, TikTok, "
                 "YouTube Shorts) – I'll extract the place and save it to the sheet.\n"
@@ -206,9 +206,7 @@ MESSAGES = {
 
         "dedup_reason_place_id": "Same place according to Google Maps (place_id).",
         "dedup_reason_unparseable": "unparseable response: {raw}",
-        # Záměrně česky („anglicky“, ne "in English") – jde o instrukci
-        # uvnitř českého promptu pro Claude v dedup.py, ne o text pro uživatele.
-        "dedup_reason_lang": "anglicky",
+        "dedup_reason_lang": "in English",
 
         "export_doc_name": "Trips",
         "export_filename": "trips",
@@ -216,10 +214,10 @@ MESSAGES = {
 }
 
 
-# Registr příkazů bota – jediné místo, kde se příkaz definuje. Odvozuje se
-# z něj dispatch v main.py (command_aliases), menu Telegramu (menu_commands)
-# i seznam příkazů v nápovědě (help_text). Názvy v obou jazycích fungují
-# jako aliasy vždy, bez ohledu na BOT_LANGUAGE.
+# Bot command registry – the single place where a command is defined. It drives
+# the dispatch in main.py (command_aliases), the Telegram menu (menu_commands)
+# and the command list in the help text (help_text). Names in both languages
+# always work as aliases, regardless of BOT_LANGUAGE.
 BOT_COMMANDS = [
     {
         "key": "search",
@@ -264,28 +262,28 @@ def _command(key: str) -> dict:
 
 
 def command_aliases(key: str) -> tuple[str, ...]:
-    """Všechny tvary příkazu pro dispatch: „/název“ v obou jazycích + extra aliasy."""
+    """All forms of a command for dispatch: "/name" in both languages + extra aliases."""
     cmd = _command(key)
-    # dict.fromkeys: dedup při stejném názvu v obou jazycích (např. /id)
+    # dict.fromkeys: dedupes when the name is the same in both languages (e.g. /id)
     names = dict.fromkeys(f"/{cmd['name'][lang]}" for lang in SUPPORTED_LANGUAGES)
     return tuple(names) + tuple(cmd["extra_aliases"])
 
 
 def command_name(key: str) -> str:
-    """Název příkazu s lomítkem v jazyce bota (např. „/hledej“) – pro texty,
-    které na příkaz odkazují (search_usage, row_gone_msg)."""
+    """Command name with a slash in the bot's language (e.g. "/hledej") – for texts
+    that refer to a command (search_usage, row_gone_msg)."""
     return f"/{_command(key)['name'][LANG]}"
 
 
 def menu_commands() -> list[dict]:
-    """Payload pro Telegram setMyCommands v jazyce bota."""
+    """Payload for Telegram setMyCommands in the bot's language."""
     return [{"command": cmd["name"][LANG], "description": cmd["desc"][LANG]}
             for cmd in BOT_COMMANDS]
 
 
 def help_text() -> str:
-    """Text /help – seznam příkazů se generuje z BOT_COMMANDS, aby nemohl
-    ujet od skutečně registrovaných příkazů."""
+    """The /help text – the command list is generated from BOT_COMMANDS so it
+    cannot drift from the commands actually registered."""
     lines = []
     for cmd in BOT_COMMANDS:
         arg = f" {cmd['arg']}" if cmd["arg"] else ""
@@ -294,6 +292,6 @@ def help_text() -> str:
 
 
 def t(key: str, **kwargs) -> str:
-    """Vrátí text v jazyce bota; kwargs se dosadí přes str.format()."""
+    """Return the text in the bot's language; kwargs are substituted via str.format()."""
     text = MESSAGES[LANG][key]
     return text.format(**kwargs) if kwargs else text

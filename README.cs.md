@@ -115,12 +115,23 @@ ať se nastavení projeví.
 **Railway (nejjednodušší, bez vlastního serveru):** připoj tenhle repo jako
 nový Railway projekt — build se rozpozná automaticky přes `nixpacks.toml`
 (přidá ffmpeg) a `railway.toml` (start command, healthcheck). Klíče vlož
-jako Railway proměnné (spuštěním `python gen_railway_env.py` lokálně nad
-tvým `.env` se vygeneruje `railway-variables.local.txt`, který jde rovnou
-vložit do Raw Editoru v dashboardu). Žádné HTTPS ani `PUBLIC_URL` řešit
-nemusíš — bot si automaticky poradí s Railway proměnnou
-`RAILWAY_PUBLIC_DOMAIN`. Free trial na Railway je časově/objemově omezený,
-takže tohle ber spíš jako rychlé vyzkoušení bota, ne trvalý hosting.
+jako Railway proměnné — buď je v dashboardu vypiš ručně, nebo si spuštěním
+`python gen_railway_env.py` lokálně nad tvým `.env` vygeneruj
+`railway-variables.local.txt`, který jde rovnou vložit do Raw Editoru.
+Ten skript potřebuje `python-dotenv` (`pip install -r requirements.txt`,
+nebo jen `pip install python-dotenv`); je to čistě pomůcka, takže ho klidně
+přeskoč, pokud si lokálně nic nastavovat nechceš.
+
+**Pak vygeneruj veřejnou doménu** v Settings → Networking → Generate Domain.
+Snadno se na to zapomene a nic tě neupozorní: bez domény Railway nenastaví
+`RAILWAY_PUBLIC_DOMAIN`, takže bot nezaregistruje webhook — deploy naběhne
+zeleně, projde healthcheck, a bot prostě nikdy neodpoví. V logu je vidět
+`[webhook] neither PUBLIC_URL nor RAILWAY_PUBLIC_DOMAIN is set`. Jakmile
+doména existuje, dej redeploy (nebo restart), ať si ji bot při startu
+načte; `PUBLIC_URL` ani žádné HTTPS pořád nastavovat nemusíš.
+
+Free trial na Railway je časově/objemově omezený, takže tohle ber spíš jako
+rychlé vyzkoušení bota, ne trvalý hosting.
 
 **Vždy běž jen jedna instance.** Provoz dostává ta, která se u Telegramu
 zaregistrovala jako poslední — pokud přepínáš mezi VPS/Dockerem/Railway,

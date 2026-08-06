@@ -1,4 +1,4 @@
-"""Testy čistých funkcí z main.py: validace URL, příkazy, whitelist, tokeny."""
+"""Tests for the pure functions in main.py: URL validation, commands, whitelist, tokens."""
 import asyncio
 
 import pytest
@@ -39,7 +39,7 @@ class TestIsCommand:
         assert is_command("/hledej tobogán", "/hledej")
 
     def test_prefix_is_not_match(self):
-        # '/idea' nesmí spustit '/id'
+        # '/idea' must not trigger '/id'
         assert not is_command("/idea", "/id")
 
     def test_case_insensitive(self):
@@ -74,17 +74,17 @@ class TestTelegramCall:
                             lambda: _FakeClient(response))
         return asyncio.run(telegram_call("sendMessage", {}))
 
-    def test_nejson_odpoved_neshodi_handler(self, monkeypatch):
-        # HTML 502 od proxy dřív spadl na r.json() -> 500 -> retry od Telegramu
+    def test_non_json_response_does_not_crash_handler(self, monkeypatch):
+        # an HTML 502 from a proxy used to crash on r.json() -> 500 -> retry from Telegram
         result = self._call(monkeypatch, _FakeResponse("<html>502</html>", 502))
         assert result["ok"] is False
         assert "502" in result["error"]
 
-    def test_ok_false_se_vrati_volajicimu(self, monkeypatch):
+    def test_ok_false_is_returned_to_caller(self, monkeypatch):
         result = self._call(monkeypatch, _FakeResponse({"ok": False, "error_code": 429}))
         assert result["error_code"] == 429
 
-    def test_uspesna_odpoved(self, monkeypatch):
+    def test_successful_response(self, monkeypatch):
         result = self._call(monkeypatch, _FakeResponse({"ok": True, "result": {}}))
         assert result["ok"] is True
 
@@ -103,7 +103,7 @@ class TestAllowedUsers:
         assert _parse_allowed_users("111,") == {111}
 
     def test_username_fails_closed(self):
-        # Překlep/@username = chyba konfigurace, ne tichý fallback na "všichni"
+        # A typo/@username = configuration error, not a silent fallback to "everyone"
         with pytest.raises(ValueError):
             _parse_allowed_users("@pepa")
 
@@ -135,7 +135,7 @@ class TestTokenMatches:
         assert not _token_matches("cokoliv", "")
 
     def test_non_ascii_input_returns_false_instead_of_crash(self):
-        # compare_digest se str argumenty vyžaduje ASCII – ne-ASCII nesmí shodit 500
+        # compare_digest with str arguments requires ASCII – non-ASCII must not cause a 500
         assert not _token_matches("žluťoučký", "tajny")
 
 

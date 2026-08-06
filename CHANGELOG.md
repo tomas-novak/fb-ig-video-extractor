@@ -1,50 +1,50 @@
 # Changelog
 
-Formát vychází z [Keep a Changelog](https://keepachangelog.com/cs/1.1.0/).
-Projekt zatím nemá číslované release — změny se evidují pod „Nevydáno"
-a při prvním veřejném release se překlopí do verze.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The project has no numbered releases yet — changes are tracked under "Unreleased"
+and will be rolled into a version at the first public release.
 
-## Nevydáno
+## Unreleased
 
-### Přidáno
-- Příkaz `/help` (aliasy `/start`, `/napoveda`) — vypíše všechny příkazy
-  bota a co dělají. Příkazy se navíc při startu registrují do menu
-  Telegramu (`setMyCommands`), takže se nabízejí po napsání `/` v chatu.
-- Jazyk bota do konfigurace: `BOT_LANGUAGE` (`en` výchozí / `cs`) řídí odpovědi bota,
-  texty mapy, jazyk Gemini shrnutí/tagů i zdůvodnění duplicit (`i18n.py`).
-  Přepis zvuku zůstává v původním jazyce videa. Anglické aliasy příkazů
-  `/search` a `/dedup` fungují nezávisle na jazyce.
-- Kategorie do konfigurace: `CATEGORIES` (čárkou oddělený seznam, výchozí
-  sada podle jazyka). Poslední kategorie je záchytná; mapa přiděluje barvy
-  podle pořadí v konfiguraci a neznámé kategorie zobrazí šedě.
-- Anglické README jako výchozí (`README.md`), česká verze v `README.cs.md`.
-- Podpora TikTok (včetně `vm.tiktok.com` share linků) a YouTube Shorts
-  (včetně `youtu.be`). Sloupec Zdroj nově nabývá hodnot `tiktok` a
-  `youtube`; cookies se pro YouTube používají stejně jako pro Instagram
-  a anti-bot blokace YouTube má vlastní srozumitelnou hlášku bota.
-- Limit délky videa `MAX_VIDEO_MINUTES` (výchozí 10, 0 = vypnuto) —
-  omylem poslané dlouhé video (např. `youtube.com/watch`) bot odmítne
-  ještě před stažením místo drahé analýzy v Gemini.
-- Základní testy (`pytest`) pro čisté funkce: validace URL a příkazů,
-  parsování Gemini/Claude odpovědí, dedup předfiltr, vyhledávání `/hledej`,
-  „místa poblíž", export GeoJSON/GPX/KML, parsování řádků tabulky.
-- GitHub Actions CI: `ruff` lint + testy na každý push a pull request,
-  badge v README.
-- Sekce „Známé limity" v README (cookies pro Instagram, blokace datacenter
-  IP, rate limity Gemini, délka videa, přesnost souřadnic).
-- Tento CHANGELOG.
+### Added
+- The `/help` command (aliases `/start`, `/napoveda`) — lists all the bot's
+  commands and what they do. The commands are also registered into the Telegram
+  menu at startup (`setMyCommands`), so they are offered after typing `/` in a chat.
+- Bot language as configuration: `BOT_LANGUAGE` (`en` default / `cs`) drives the
+  bot's replies, the map texts, the language of Gemini summaries/tags and of the
+  duplicate reasoning (`i18n.py`). The audio transcript stays in the original
+  language of the video. The English command aliases `/search` and `/dedup` work
+  regardless of the language.
+- Categories as configuration: `CATEGORIES` (comma-separated list, default set
+  per language). The last category is the fallback; the map assigns colors by the
+  order in the configuration and shows unknown categories in grey.
+- English README as the default (`README.md`), Czech version in `README.cs.md`.
+- Support for TikTok (including `vm.tiktok.com` share links) and YouTube Shorts
+  (including `youtu.be`). The Source column now also takes the values `tiktok` and
+  `youtube`; cookies are used for YouTube the same way as for Instagram, and
+  YouTube's anti-bot blocking has its own clear message from the bot.
+- Video length limit `MAX_VIDEO_MINUTES` (default 10, 0 = off) — a long video sent
+  by mistake (e.g. `youtube.com/watch`) is rejected by the bot before downloading
+  instead of an expensive analysis in Gemini.
+- Basic tests (`pytest`) for the pure functions: URL and command validation,
+  parsing Gemini/Claude responses, the dedup prefilter, search, "nearby places",
+  GeoJSON/GPX/KML export, sheet row parsing.
+- GitHub Actions CI: `ruff` lint + tests on every push and pull request, badge in
+  the README.
+- A "Known limitations" section in the README (cookies for Instagram, datacenter
+  IP blocking, Gemini rate limits, video length, coordinate accuracy).
+- This CHANGELOG.
 
-### Stávající funkce (stav před zavedením changelogu)
-- Telegram bot: uložení místa z URL Facebook/Instagram videa (yt-dlp +
-  Gemini 2.5 Flash + Google Sheets), detekce duplicit podle URL i video ID.
-- Whitelist uživatelů (`TELEGRAM_ALLOWED_USERS`), příkaz `/id`.
-- Geokódování přes Google Places API (přesné souřadnice + odkaz na mapy).
-- Interaktivní mapa (`/map`) s filtry, mazáním a označováním navštívených
-  míst; ochrana tokenem (`MAP_TOKEN`), read-only sdílení (`MAP_VIEW_TOKEN`).
-- Kontrola duplicitních míst `/zkontroluj` (Claude Haiku) s tlačítky
-  Sloučit/Ponechat.
-- „Místa poblíž": bot odpoví na poslanou polohu nejbližšími uloženými místy.
-- Fulltextové hledání `/hledej` (bez diakritiky).
-- Export `/export` ve formátech GeoJSON, GPX a KML.
-- Automatická registrace Telegram webhooku při startu, Docker/Compose
-  nasazení, setup průvodce v README.
+### Existing features (state before the changelog was introduced)
+- Telegram bot: saving a place from a Facebook/Instagram video URL (yt-dlp +
+  Gemini 2.5 Flash + Google Sheets), duplicate detection by URL and video ID.
+- User whitelist (`TELEGRAM_ALLOWED_USERS`), the `/id` command.
+- Geocoding via the Google Places API (exact coordinates + a maps link).
+- Interactive map (`/map`) with filters, deletion and marking places as visited;
+  token protection (`MAP_TOKEN`), read-only sharing (`MAP_VIEW_TOKEN`).
+- Duplicate place check (Claude Haiku) with Merge/Keep buttons.
+- "Nearby places": the bot replies to a shared location with the closest saved places.
+- Full-text search (diacritics-insensitive).
+- Export via `/export` in GeoJSON, GPX and KML formats.
+- Automatic Telegram webhook registration at startup, Docker/Compose deployment,
+  a setup guide in the README.

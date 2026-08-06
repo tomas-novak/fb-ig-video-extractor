@@ -1,11 +1,11 @@
-# systemd unit pro FB/IG Video Extractor
+# systemd unit for FB/IG Video Extractor
 #
-# Instalace:
+# Installation:
 #   sudo cp deploy/fbig-bot.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now fbig-bot
 #
-# Podrobný postup: docs/deploy-vps.md
+# Detailed guide: docs/deploy-vps.md
 
 [Unit]
 Description=FB/IG Video Extractor (Telegram bot)
@@ -17,38 +17,38 @@ Type=simple
 User=fbigbot
 Group=fbigbot
 WorkingDirectory=/opt/fbig-bot
-# Proměnné se načítají z /opt/fbig-bot/.env přímo v aplikaci (load_dotenv v main.py).
-# Záměrně nepoužíváme EnvironmentFile= – systemd si neporadí s jednořádkovým JSON
-# v GOOGLE_SERVICE_ACCOUNT_JSON a služba by odmítla nastartovat.
+# The variables are loaded from /opt/fbig-bot/.env inside the app (load_dotenv in main.py).
+# We deliberately do not use EnvironmentFile= – systemd cannot handle the single-line
+# JSON in GOOGLE_SERVICE_ACCOUNT_JSON and the service would refuse to start.
 ExecStart=/opt/fbig-bot/venv/bin/python main.py
 
 Restart=always
 RestartSec=5
 
-# --- Vrstva 1: limity paměti (cgroup) ---
-# Bot narazí na vlastní strop dřív, než dojde RAM celého serveru. Případný kill
-# se pak odehraje uvnitř této cgroup a globální OOM killer se vůbec nespustí,
-# takže ostatní procesy na serveru zůstanou nedotčené.
+# --- Layer 1: memory limits (cgroup) ---
+# The bot hits its own ceiling before the whole server runs out of RAM. Any kill
+# then happens inside this cgroup and the global OOM killer never fires at all,
+# so the other processes on the server stay untouched.
 MemoryHigh=500M
 MemoryMax=800M
-# Bez tohoto limitu by bot mohl zaplnit celý swap a rozthrashovat disk.
+# Without this limit the bot could fill the entire swap and thrash the disk.
 MemorySwapMax=512M
 
-# --- Vrstva 2: pojistka pro globální OOM ---
-# Kdyby paměť došla vinou jiného procesu, kernel má zabít jako první tohohle
-# bota. Rozsah je -1000 až 1000, 1000 = "vyber si mě". Hodnotu dědí i potomci,
-# takže platí i pro yt-dlp a ffmpeg spuštěné během stahování.
+# --- Layer 2: fallback for the global OOM ---
+# If memory runs out because of another process, the kernel should kill this bot
+# first. The range is -1000 to 1000, 1000 = "pick me". Children inherit the value,
+# so it also applies to yt-dlp and ffmpeg started during a download.
 OOMScoreAdjust=1000
 OOMPolicy=continue
 
-# --- Vrstva 3: priorita CPU a I/O ---
-# Stahování videa a ffmpeg nesmí zpomalit ostatní služby (výchozí váha je 100).
+# --- Layer 3: CPU and I/O priority ---
+# Downloading a video and ffmpeg must not slow down other services (default weight is 100).
 Nice=10
 CPUWeight=50
 IOWeight=50
 
-# --- Bezpečnost / úklid ---
-# Privátní /tmp: stažená videa jsou izolovaná a po restartu se automaticky uklidí.
+# --- Security / cleanup ---
+# Private /tmp: downloaded videos are isolated and cleaned up automatically on restart.
 PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=full

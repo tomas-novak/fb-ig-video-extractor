@@ -1,4 +1,4 @@
-"""Testy exportu míst do GeoJSON/GPX/KML."""
+"""Tests for exporting places to GeoJSON/GPX/KML."""
 import json
 import xml.etree.ElementTree as ET
 
@@ -39,7 +39,7 @@ class TestBuildExport:
         data = json.loads(content)
         assert data["type"] == "FeatureCollection"
         feature = data["features"][0]
-        # GeoJSON má pořadí [lng, lat]
+        # GeoJSON uses the order [lng, lat]
         assert feature["geometry"]["coordinates"] == [14.09, 50.23]
         assert feature["properties"]["name"] == "Koupaliště Slaný"
 
@@ -63,7 +63,7 @@ class TestBuildExport:
         place = make_place(location_name="Bistro <U Pepy> & spol.")
         for fmt in ("gpx", "kml"):
             content, _, _ = _build_export([place], fmt)
-            ET.fromstring(content)  # neescapované < & > by shodily parser
+            ET.fromstring(content)  # unescaped < & > would break the parser
 
     def test_unknown_format_raises_400(self):
         with pytest.raises(HTTPException) as e:

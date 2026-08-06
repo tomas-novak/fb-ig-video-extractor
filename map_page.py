@@ -1,7 +1,7 @@
-"""HTML stránka s Leaflet mapou. Data si tahá z /data.
+"""HTML page with a Leaflet map. It pulls its data from /data.
 
-Šablona je statická; jazyk (BOT_LANGUAGE) a kategorie (CATEGORIES) se do ní
-dosazují při renderu přes render_map() – tokeny __MAP_*__.
+The template is static; the language (BOT_LANGUAGE) and categories (CATEGORIES)
+are substituted into it at render time by render_map() – the __MAP_*__ tokens.
 """
 import json
 
@@ -9,7 +9,7 @@ from i18n import CATEGORIES, LANG
 
 
 def render_map() -> str:
-    """Dosadí jazyk a kategorie z konfigurace do HTML šablony mapy."""
+    """Substitute the language and categories from the configuration into the map HTML template."""
     return (MAP_HTML
             .replace("__MAP_LANG_ATTR__", LANG)
             .replace("__MAP_LANG__", json.dumps(LANG))
@@ -113,12 +113,12 @@ MAP_HTML = r"""<!DOCTYPE html>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Jazyk a kategorie dosazuje server z konfigurace (BOT_LANGUAGE, CATEGORIES)
+// The server substitutes the language and categories from the config (BOT_LANGUAGE, CATEGORIES)
 const LANG = __MAP_LANG__;
 const CATEGORIES = __MAP_CATEGORIES__;
 const FALLBACK_CATEGORY = CATEGORIES[CATEGORIES.length - 1];
 
-// Texty UI – jazyk vybírá LANG
+// UI texts – LANG picks the language
 const TEXTS = {
   cs: {
     title: "Výlety – mapa", panelTitle: "🗺️ Výlety",
@@ -155,7 +155,7 @@ const TEXTS = {
 };
 const T = TEXTS[LANG] || TEXTS.cs;
 
-// Statické texty stránky
+// Static page texts
 document.title = T.title;
 document.getElementById("panel-title").textContent = T.panelTitle;
 document.getElementById("label-view").textContent = T.view;
@@ -166,13 +166,13 @@ document.getElementById("tags-all").textContent = T.all;
 document.getElementById("tags-none").textContent = T.none;
 document.getElementById("visited-toggle").textContent = T.visitedOnly;
 
-// Token z URL mapy (/map?token=...) se předává všem datovým požadavkům
+// The token from the map URL (/map?token=...) is passed to every data request
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
 function withToken(path){ return TOKEN ? path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : path; }
 
-// Barvy se kategoriím přidělují podle pořadí v konfiguraci; výchozí česká
-// sada tak dostane stejné barvy jako dřív. Neznámá kategorie (starší data
-// po změně CATEGORIES) dostane šedou.
+// Colors are assigned to categories by their order in the configuration, so the
+// default Czech set keeps the same colors as before. An unknown category (older
+// data after a CATEGORIES change) gets grey.
 const PALETTE = ["#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688",
                  "#f44336", "#e91e63", "#795548", "#607d8b"];
 const GREY = "#607d8b";
@@ -182,7 +182,7 @@ function colorFor(cat){ return COLORS[cat] || GREY; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 function parseTags(s){ return (s||"").split(",").map(t => t.trim()).filter(Boolean); }
 
-// Sbalovací panel filtrů (na mobilu jinak zakrývá mapu)
+// Collapsible filter panel (on mobile it would otherwise cover the map)
 const body = document.getElementById("panel-body");
 const toggleBtn = document.getElementById("toggle");
 function setOpen(open){
@@ -198,11 +198,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 map.on("click", () => setOpen(false));
 
-let CAN_EDIT = true;     // false = read-only sdílený pohled (server skryje mutace)
+let CAN_EDIT = true;     // false = read-only shared view (the server hides mutations)
 const items = {};        // key -> {marker, category, tags[], visited, group[]}
-const activeCat = {};    // kategorie -> bool
+const activeCat = {};    // category -> bool
 const activeTag = {};    // tag -> bool
-let visitedMode = false; // false = jen nenavštívená, true = JEN navštívená
+let visitedMode = false; // false = unvisited only, true = visited ONLY
 
 function placeVisible(item){
   if(visitedMode !== item.visited) return false;
@@ -212,7 +212,7 @@ function placeVisible(item){
 }
 
 function markerStyle(item){
-  // navštívená místa jsou šedá, ať jsou na první pohled poznat
+  // visited places are grey so they stand out at a glance
   return { fillColor: item.visited ? "#9e9e9e" : colorFor(item.category) };
 }
 
@@ -258,8 +258,8 @@ function buildPopup(key){
   return html;
 }
 
-// Dvoufázové mazání: 1. klik odjistí (červené potvrzení), 2. klik smaže.
-// Bez potvrzení do 5 s se tlačítko zase zajistí.
+// Two-phase deletion: the 1st click arms it (red confirmation), the 2nd deletes.
+// Without a confirmation within 5 s the button disarms itself again.
 window.deletePlace = function(key, btn){
   const item = items[key];
   if(!item) return;
@@ -287,7 +287,7 @@ window.deletePlace = function(key, btn){
     return r.json();
   }).then(res => {
     if(res.ok){
-      // Čísla řádků se mazáním posunula → načíst mapu znovu s čerstvými daty
+      // Deletion shifted the row numbers → reload the map with fresh data
       location.reload();
     } else {
       alert(T.deleteFailed + (res.error || "?"));
@@ -325,7 +325,7 @@ window.setVisited = function(key, flag, btn){
 function buildCatFilters(){
   const box = document.getElementById("cat-filters");
   box.innerHTML = "";
-  // Pořadí chipů podle konfigurace; kategorie mimo ni (starší data) na konec
+  // Chip order follows the configuration; categories outside it (older data) go last
   const order = cat => { const i = CATEGORIES.indexOf(cat); return i === -1 ? CATEGORIES.length : i; };
   Object.keys(activeCat).sort((a,b) => order(a) - order(b) || a.localeCompare(b, LANG)).forEach(cat => {
     const chip = document.createElement("span");
@@ -353,7 +353,7 @@ function buildTagFilters(){
   });
 }
 
-// Odkazy na export (GeoJSON pro webové mapy, GPX/KML pro Mapy.cz, Organic Maps...)
+// Export links (GeoJSON for web maps, GPX/KML for Mapy.cz, Organic Maps...)
 const expBox = document.getElementById("export-links");
 ["geojson", "gpx", "kml"].forEach(fmt => {
   const a = document.createElement("a");
@@ -363,7 +363,7 @@ const expBox = document.getElementById("export-links");
   expBox.appendChild(a);
 });
 
-// Přepínač zobrazení navštívených míst
+// Toggle for showing visited places
 const visitedChip = document.getElementById("visited-toggle");
 visitedChip.classList.add("off");
 visitedChip.onclick = () => {
@@ -381,7 +381,7 @@ fetch(withToken("/data")).then(r => {
   if(places.error){ document.getElementById("status").textContent = T.dataError + places.error; return; }
   const bounds = [];
 
-  // Seskupení podle group_id (sloučená místa = jeden pin s více videi)
+  // Grouping by group_id (merged places = one pin with multiple videos)
   const groups = {};
   places.forEach(p => {
     const key = p.group_id || ("solo-" + p.row);

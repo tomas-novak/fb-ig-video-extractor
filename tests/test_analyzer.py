@@ -1,4 +1,4 @@
-"""Testy parsování Gemini odpovědi – bez volání API."""
+"""Tests for parsing the Gemini response – without calling the API."""
 import json
 
 import pytest

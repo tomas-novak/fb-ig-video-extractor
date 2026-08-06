@@ -1,4 +1,4 @@
-"""Testy dedup logiky: předfiltr párů podle vzdálenosti + parsování verdiktu."""
+"""Tests for the dedup logic: distance prefilter of pairs + verdict parsing."""
 from conftest import make_place
 from dedup import MAX_DISTANCE_KM, find_candidate_pairs, parse_verdict
 
@@ -6,10 +6,10 @@ from dedup import MAX_DISTANCE_KM, find_candidate_pairs, parse_verdict
 class TestFindCandidatePairs:
     def test_close_places_are_candidates(self):
         a = make_place(row=2, lat=50.230, lng=14.086)
-        b = make_place(row=3, lat=50.232, lng=14.090)  # pár set metrů
+        b = make_place(row=3, lat=50.232, lng=14.090)  # a few hundred metres
         pairs = find_candidate_pairs([a, b])
         assert len(pairs) == 1
-        assert pairs[0][2] < 1.0  # vzdálenost v km
+        assert pairs[0][2] < 1.0  # distance in km
 
     def test_distant_places_are_not_candidates(self):
         a = make_place(row=2, lat=50.0, lng=14.0)   # Praha
@@ -27,13 +27,13 @@ class TestFindCandidatePairs:
         assert len(find_candidate_pairs([a, b])) == 1
 
     def test_empty_group_ids_are_compared(self):
-        # dvě místa bez group_id se nesmí tvářit jako "stejná skupina"
+        # two places without a group_id must not look like "the same group"
         a = make_place(row=2, group_id="")
         b = make_place(row=3, group_id="")
         assert len(find_candidate_pairs([a, b])) == 1
 
     def test_boundary_distance(self):
-        # ~1° zeměpisné šířky = ~111 km; MAX_DISTANCE_KM je výrazně menší
+        # ~1° of latitude = ~111 km; MAX_DISTANCE_KM is significantly smaller
         delta_deg = (MAX_DISTANCE_KM + 1) / 111.0
         a = make_place(row=2, lat=50.0, lng=14.0)
         b = make_place(row=3, lat=50.0 + delta_deg, lng=14.0)
@@ -54,7 +54,7 @@ class TestParseVerdict:
         assert v["same"] is True
 
     def test_unparseable_fails_safe(self):
-        # neparsovatelná odpověď nesmí navrhnout sloučení
+        # an unparseable response must not suggest a merge
         v = parse_verdict("Promiň, nedokážu rozhodnout.")
         assert v["same"] is False
         assert "neparsovatelná" in v["reason"]

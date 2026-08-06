@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# ffmpeg je potřeba pro yt-dlp (zpracování stažených videí)
+# ffmpeg is required by yt-dlp (processing the downloaded videos)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Neběžet jako root
+# Do not run as root
 RUN useradd -m app
 USER app
 

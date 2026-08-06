@@ -1,187 +1,188 @@
-# Roadmap — cesta k úspěšnému open-source projektu
+# Roadmap — the path to a successful open-source project
 
-Plán úprav a nových featur seřazený podle dopadu. Cíl: aby si projekt lidé na
-GitHubu všimli, dokázali ho rozjet a měli důvod ho používat.
-
----
-
-## Fáze 0 — Připravenost na zveřejnění
-
-Nutný základ před tím, než má smysl repo propagovat.
-
-- [x] **Přidat `LICENSE` (MIT)** — standardní MIT text s copyright hláškou
-  (jméno + rok). GitHub licenci automaticky detekuje a zobrazí v hlavičce repa.
-- [x] **Sekce `## Licence` v README** — jedna věta s odkazem na LICENSE.
-- [x] **Právní disclaimer do README** — stahování videí přes yt-dlp porušuje
-  podmínky služeb Meta. Napsat jasně: nástroj slouží k osobní archivaci,
-  používání na vlastní odpovědnost.
-- [x] **Vyjasnit self-hosted povahu** — README teď zve čtenáře k použití
-  soukromého bota. Přeformulovat na „svého bota" (každý si nasazuje vlastní
-  instanci s vlastním Sheetem a vlastními klíči). Zvážit whitelist povolených
-  Telegram user ID v kódu, aby cizí lidé nečerpali Gemini kredit.
-  *(hotovo: `TELEGRAM_ALLOWED_USERS` + příkaz `/id`, fail-closed validace)*
-- [x] **Opravit placeholder v `.env.example`** — `AIzaSy_your_gemini_api_key_here`
-  začíná skutečným prefixem Google klíčů a secret-scannery ho falešně hlásí.
-  Přepsat na neutrální `your_gemini_api_key_here`.
-- [x] **BLOCKER: chránit mutační endpointy mapy** — `POST /delete` a
-  `POST /visited` nemají žádnou autentizaci; kdokoliv, kdo zjistí URL instance,
-  může mazat data. `GET /data` navíc veřejně vydává celou databázi míst.
-  *(hotovo: env `MAP_TOKEN`; mapa se otevírá přes `/map?token=...` a token
-  předává na `/data`, `/visited` i `/delete`; server ověřuje konstantním
-  porovnáním. Prázdný `MAP_TOKEN` = mapa veřejná — vědomá volba self-hostera.)*
+A plan of changes and new features ordered by impact. The goal: for people on
+GitHub to notice the project, be able to get it running, and have a reason to use it.
 
 ---
 
-## Fáze 1 — Demo, které prodává
+## Phase 0 — Readiness for going public
 
-Nejvyšší poměr dopad/práce. Lidé rozhodují o hvězdičce během pár sekund
-scrollování — potřebují vidět, ne číst.
+The necessary groundwork before it makes sense to promote the repo.
 
-- [ ] **GIF hlavního flow do README** — obrazovka telefonu: vložení URL reelsu
-  do Telegramu → odpověď bota s místem, kategorií a shrnutím. Nahrát jako
-  screen-recording, převést na GIF (např. přes ffmpeg), vložit hned pod
-  nadpis README.
-- [ ] **Screenshot mapy** — mapa s piny, zapnutými filtry kategorií a otevřeným
-  popupem místa. Ukazuje „co z toho mám" — cílový stav po pár týdnech používání.
-- [ ] **Ukázkový výstup v Google Sheets** — screenshot tabulky s několika řádky
-  (anonymizovanými / ukázkovými daty).
-- [ ] **Veřejná demo mapa (volitelné)** — instance `/map` naplněná ukázkovými
-  daty, odkaz z README. Návštěvník si produkt „osahá" bez instalace.
+- [x] **Add `LICENSE` (MIT)** — the standard MIT text with a copyright line
+  (name + year). GitHub detects the license automatically and shows it in the
+  repo header.
+- [x] **A `## License` section in the README** — one sentence linking to LICENSE.
+- [x] **A legal disclaimer in the README** — downloading videos via yt-dlp
+  violates Meta's terms of service. State it clearly: the tool is for personal
+  archiving, use at your own risk.
+- [x] **Clarify the self-hosted nature** — the README used to invite readers to
+  use a private bot. Rephrase it to "your own bot" (everyone deploys their own
+  instance with their own Sheet and their own keys). Consider a whitelist of
+  allowed Telegram user IDs in the code so strangers do not burn Gemini credit.
+  *(done: `TELEGRAM_ALLOWED_USERS` + the `/id` command, fail-closed validation)*
+- [x] **Fix the placeholder in `.env.example`** — `AIzaSy_your_gemini_api_key_here`
+  starts with the real prefix of Google keys and secret scanners flag it as a
+  false positive. Rewrite it to a neutral `your_gemini_api_key_here`.
+- [x] **BLOCKER: protect the map's mutating endpoints** — `POST /delete` and
+  `POST /visited` had no authentication; anyone who found the instance URL could
+  delete data. On top of that `GET /data` publicly served the whole place database.
+  *(done: the `MAP_TOKEN` env variable; the map is opened via `/map?token=...` and
+  passes the token to `/data`, `/visited` and `/delete`; the server verifies it with
+  a constant-time comparison. An empty `MAP_TOKEN` = a public map — a deliberate
+  choice by the self-hoster.)*
 
 ---
 
-## Fáze 2 — Snížit setup z hodiny na minuty
+## Phase 1 — A demo that sells
 
-Každý ruční krok odfiltruje část zájemců. Teď jsou potřeba 4 credentials a
-ruční registrace webhooku.
+The highest impact-to-effort ratio. People decide about a star within a few
+seconds of scrolling — they need to see, not to read.
 
-- [x] **Automatická registrace webhooku při startu** — místo ručního
-  `python main.py --set-webhook` zavolat `setWebhook` v `lifespan` handleru,
-  pokud je nastavená env variable `PUBLIC_URL`. Jeden krok setup navíc zmizí.
-  *(hotovo: na Railway funguje zcela automaticky přes `RAILWAY_PUBLIC_DOMAIN`,
-  jinde přes `PUBLIC_URL`; selhání registrace nebrání startu)*
-- [x] **`Dockerfile` + `docker-compose.yml`** — pro self-hostery (VPS, NAS,
-  Raspberry Pi). Compose soubor načte `.env`, jediný příkaz: `docker compose up`.
-- [ ] **„Deploy on Railway" tlačítko** — Railway template s předdefinovanými
-  env variables (názvy + popisky). Uživatel jen vyplní hodnoty ve formuláři.
-  *(vyžaduje publikovat template z Railway účtu autora — až po zveřejnění repa)*
-- [x] **Setup průvodce v README** — očíslovaný postup se všemi kroky:
+- [ ] **A GIF of the main flow in the README** — a phone screen: pasting a reel
+  URL into Telegram → the bot's reply with the place, category and summary. Record
+  the screen, convert it to a GIF (e.g. via ffmpeg), and put it right below the
+  README heading.
+- [ ] **A screenshot of the map** — the map with pins, category filters enabled and
+  a place popup open. It shows "what's in it for me" — the target state after a few
+  weeks of use.
+- [ ] **A sample output in Google Sheets** — a screenshot of the sheet with a few
+  rows (anonymized / sample data).
+- [ ] **A public demo map (optional)** — a `/map` instance filled with sample data,
+  linked from the README. A visitor gets a feel for the product without installing.
+
+---
+
+## Phase 2 — Cut setup from an hour to minutes
+
+Every manual step filters out a portion of the interested people. Right now 4
+credentials and a manual webhook registration are needed.
+
+- [x] **Automatic webhook registration at startup** — instead of a manual
+  `python main.py --set-webhook`, call `setWebhook` in the `lifespan` handler when
+  the `PUBLIC_URL` env variable is set. One setup step disappears.
+  *(done: on Railway it works fully automatically via `RAILWAY_PUBLIC_DOMAIN`,
+  elsewhere via `PUBLIC_URL`; a failed registration does not prevent startup)*
+- [x] **`Dockerfile` + `docker-compose.yml`** — for self-hosters (VPS, NAS,
+  Raspberry Pi). The compose file loads `.env`, a single command: `docker compose up`.
+- [ ] **A "Deploy on Railway" button** — a Railway template with predefined env
+  variables (names + descriptions). The user only fills in the values in a form.
+  *(requires publishing a template from the author's Railway account — only after
+  the repo is public)*
+- [x] **A setup guide in the README** — a numbered procedure with all the steps:
   1. BotFather → token (2 min)
-  2. Google AI Studio → Gemini klíč (2 min)
-  3. Google Cloud → service account + sdílení Sheetu (5–10 min, nejtěžší krok
-     — doplnit screenshoty)
-  4. Deploy (Railway tlačítko nebo Docker)
+  2. Google AI Studio → Gemini key (2 min)
+  3. Google Cloud → service account + sharing the Sheet (5–10 min, the hardest
+     step — add screenshots)
+  4. Deploy (Railway button or Docker)
 
-  Uvést odhad celkového času („~15 minut, vše zdarma") — snižuje bariéru.
-- [ ] **Volitelný SQLite backend (odvážnější krok)** — service account pro
-  Sheets je nejotravnější credential. Abstrahovat `sheets.py` na jednoduché
-  storage rozhraní (append řádku, čtení všech, update buňky) a přidat SQLite
-  implementaci. Se SQLite stačí 2 klíče (Telegram + Gemini) a setup je
-  triviální. Sheets zůstává jako výchozí varianta pro ne-programátory.
-
----
-
-## Fáze 3 — Angličtina a konfigurovatelnost
-
-Český GitHub trh je malý. Otevření světu = násobně větší dosah.
-
-- [x] **Anglické README jako výchozí** — `README.md` anglicky, česká verze
-  vedle jako `README.cs.md` (vzájemné odkazy v hlavičce).
-- [x] **Jazyk odpovědí bota do konfigurace** — env variable `BOT_LANGUAGE`
-  (např. `cs` / `en`). Texty zpráv v `main.py` vytáhnout do slovníku,
-  Gemini promptu v `analyzer.py` předat instrukci, v jakém jazyce psát
-  shrnutí a přepis.
-  *(hotovo: `i18n.py` – katalog textů cs/en, dvoujazyčné Gemini prompty,
-  přeložená mapa i zdůvodnění duplicit; přepis zůstává v jazyce videa.
-  Anglické aliasy příkazů `/search` a `/dedup` fungují vždy.)*
-- [x] **Kategorie do konfigurace** — kategorie (`koupání`, `turistika`, …)
-  jsou natvrdo v promptu a mapě. Vytáhnout do env variable
-  (`CATEGORIES=swimming,hiking,food,...`) nebo config souboru; prompt i
-  filtry na mapě je načtou odtud.
-  *(hotovo: `CATEGORIES` v `i18n.py`, výchozí sada podle jazyka; poslední
-  kategorie je záchytná. Mapa přiděluje barvy podle pořadí v konfiguraci,
-  kategorie mimo konfiguraci – starší data – zobrazí šedě.)*
+  State an estimate of the total time ("~15 minutes, all free") — it lowers the barrier.
+- [ ] **An optional SQLite backend (a bolder step)** — the service account for
+  Sheets is the most annoying credential. Abstract `sheets.py` into a simple storage
+  interface (append a row, read all, update a cell) and add a SQLite implementation.
+  With SQLite only 2 keys are needed (Telegram + Gemini) and the setup is trivial.
+  Sheets remains the default option for non-programmers.
 
 ---
 
-## Fáze 4 — TikTok a YouTube Shorts
+## Phase 3 — English and configurability
 
-Use-case „místa z krátkých videí" žije nejvíc na TikToku. yt-dlp obě platformy
-už umí — jde převážně o povolení URL formátů.
+The Czech GitHub market is small. Opening up to the world = many times the reach.
 
-- [x] **TikTok** — přidat rozpoznání `tiktok.com` URL (včetně krátkých
-  `vm.tiktok.com` share linků) do validace v `main.py` / `extractor.py`.
-  Otestovat, zda yt-dlp z datacenter IP stahuje spolehlivě; případné limity
-  zdokumentovat.
-  *(hotovo v kódu; spolehlivost z datacenter IP zbývá ověřit provozem —
-  poznámka v README / Známé limity)*
-- [x] **YouTube Shorts** — povolit `youtube.com/shorts/ID` URL. Pozor na
-  YouTube anti-bot opatření na datacenter IP — zdokumentovat případnou
-  potřebu cookies.
-  *(hotovo: cookies se pro YouTube posílají stejně jako pro Instagram,
-  anti-bot blokace má vlastní srozumitelnou hlášku bota + popis v README)*
-- [x] **Sloupec `L: Zdroj` rozšířit** o nové hodnoty (tiktok, youtube), aby
-  fungovaly filtry.
-  *(hotovo: `extract_source()` je jediné místo určování zdroje — analyzer
-  ho nově používá místo vlastní FB/IG podmínky)*
-
----
-
-## Fáze 5 — Z archivu produkt na cesty
-
-Featury, které promění pasivní sbírku míst v nástroj používaný přímo na výletě.
-
-- [x] **„Místa poblíž"** — uživatel pošle botu polohu (Telegram attachment
-  Location) → bot vrátí uložená místa do X km, seřazená podle vzdálenosti,
-  s odkazem na navigaci. Souřadnice v tabulce už jsou, výpočet vzdálenosti
-  (haversine) je pár řádků. Killer feature: použiješ ji, když někde reálně jsi.
-  *(hotovo: 5 nejbližších nenavštívených míst do 50 km, sloučené skupiny
-  jednou; když v okruhu nic není, ukáže aspoň nejbližší místo)*
-- [x] **Sdílení mapy** — read-only odkaz na `/map` pro partnera/kamarády při
-  plánování. Zvážit jednoduchý token v URL, aby mapa nebyla úplně veřejná
-  (skrývá i tlačítka mazání/visited pro cizí návštěvníky).
-  *(hotovo: `MAP_VIEW_TOKEN` – server mutace zamítá, mapa tlačítka skryje
-  podle hlavičky X-Can-Edit)*
-- [x] **Export dat** — endpoint `/export` s formáty GeoJSON, GPX a KML.
-  Umožní import pinů do Mapy.cz, Organic Maps nebo Google My Maps.
-  Signalizuje „tvá data ti patří" — cestovatelská komunita to oceňuje.
-  *(hotovo: `/export?format=geojson|gpx|kml`, odkazy přímo v panelu mapy;
-  jedno místo na skupinu, včetně všech video URL)*
-- [x] **Vyhledávání v Telegramu (volitelné)** — příkaz `/hledej <text>`
-  prohledá názvy míst, tagy a shrnutí, vrátí pár nejlepších shod s odkazy.
-  *(hotovo: bez diakritiky – „hriste" najde „hřiště"; navštívená označena ✅)*
+- [x] **English README as the default** — `README.md` in English, the Czech version
+  next to it as `README.cs.md` (cross-links in the header).
+- [x] **The bot's reply language as configuration** — the `BOT_LANGUAGE` env
+  variable (e.g. `cs` / `en`). Extract the message texts from `main.py` into a
+  dictionary, and pass the Gemini prompt in `analyzer.py` an instruction about which
+  language to write the summary and transcript in.
+  *(done: `i18n.py` – a cs/en text catalog, bilingual Gemini prompts, a translated
+  map and duplicate reasoning; the transcript stays in the language of the video.
+  The English command aliases `/search` and `/dedup` always work.)*
+- [x] **Categories as configuration** — the categories (`koupání`, `turistika`, …)
+  were hardcoded in the prompt and the map. Extract them into an env variable
+  (`CATEGORIES=swimming,hiking,food,...`) or a config file; both the prompt and the
+  map filters read them from there.
+  *(done: `CATEGORIES` in `i18n.py`, a default set per language; the last category
+  is the fallback. The map assigns colors by the order in the configuration, and
+  categories outside the configuration – older data – are shown in grey.)*
 
 ---
 
-## Fáze 6 — Důvěryhodnost
+## Phase 4 — TikTok and YouTube Shorts
 
-Nepřinese nové uživatele, ale zvedá konverzi těch, kteří už přišli.
+The "places from short videos" use case lives mostly on TikTok. yt-dlp already
+handles both platforms — it is mostly about allowing the URL formats.
 
-- [x] **Základní testy** — aspoň pro čisté funkce: validace URL, parsování
-  Gemini odpovědi, dedup logika. `pytest`, bez nutnosti reálných API klíčů
-  (mock).
-  *(hotovo: 108 testů ve `tests/` — URL/příkazy/whitelist, parsování Gemini
-  i Claude odpovědí, dedup předfiltr, /hledej, místa poblíž, export
-  GeoJSON/GPX/KML, parsování řádků tabulky; `pip install -r
-  requirements-dev.txt && pytest`)*
-- [x] **GitHub Actions CI** — spustit testy + `ruff` lint na každý push,
-  badge do README.
-  *(hotovo: `.github/workflows/ci.yml`, ruff konfigurace v `pyproject.toml`)*
-- [x] **Sekce „Známé limity" v README** — FB občas blokuje datacenter IP;
-  popsat řešení přes cookies (`--cookies` v yt-dlp), rate limity Gemini
-  free tieru, max. délku videa.
-- [x] **CHANGELOG.md** — od prvního veřejného release vést stručný log změn.
-  *(založen; do prvního release se změny evidují pod „Nevydáno")*
+- [x] **TikTok** — add recognition of `tiktok.com` URLs (including short
+  `vm.tiktok.com` share links) to the validation in `main.py` / `extractor.py`.
+  Test whether yt-dlp downloads reliably from a datacenter IP; document any limits.
+  *(done in the code; reliability from a datacenter IP remains to be verified in
+  practice — a note in the README / Known limitations)*
+- [x] **YouTube Shorts** — allow `youtube.com/shorts/ID` URLs. Watch out for
+  YouTube's anti-bot measures on datacenter IPs — document a possible need for cookies.
+  *(done: cookies are sent for YouTube the same way as for Instagram, the anti-bot
+  blocking has its own clear message from the bot + a description in the README)*
+- [x] **Extend the `L: Source` column** with the new values (tiktok, youtube) so
+  that filters work.
+  *(done: `extract_source()` is the single place determining the source — the
+  analyzer now uses it instead of its own FB/IG condition)*
 
 ---
 
-## Doporučené pořadí na první týden
+## Phase 5 — From an archive to a product for the road
 
-1. Fáze 0 celá (pár hodin, odblokuje zveřejnění)
-2. Fáze 1: GIF + screenshoty (nejvyšší dopad na hvězdičky)
-3. Fáze 2: Docker + auto-webhook
-4. Fáze 3: anglické README
+Features that turn a passive collection of places into a tool used on the trip itself.
 
-„Místa poblíž" z Fáze 5 stojí za to udělat hned bez ohledu na GitHub — je
-užitečná pro vlastní používání. Zbytek Fáze 5 a SQLite backend přidávat až
-podle reálného zájmu uživatelů.
+- [x] **"Nearby places"** — the user sends the bot a location (Telegram Location
+  attachment) → the bot returns saved places within X km, sorted by distance, with a
+  navigation link. The coordinates are already in the sheet, and the distance
+  calculation (haversine) is a few lines. A killer feature: you use it when you
+  actually are somewhere.
+  *(done: the 5 closest unvisited places within 50 km, merged groups counted once;
+  when there is nothing in range it shows at least the closest place)*
+- [x] **Sharing the map** — a read-only link to `/map` for a partner/friends while
+  planning. Consider a simple token in the URL so the map is not completely public
+  (it also hides the delete/visited buttons from outside visitors).
+  *(done: `MAP_VIEW_TOKEN` – the server rejects mutations, the map hides the buttons
+  based on the X-Can-Edit header)*
+- [x] **Data export** — an `/export` endpoint with GeoJSON, GPX and KML formats.
+  It allows importing pins into Mapy.cz, Organic Maps or Google My Maps. It signals
+  "your data is yours" — the travel community appreciates that.
+  *(done: `/export?format=geojson|gpx|kml`, links directly in the map panel; one
+  place per group, including all video URLs)*
+- [x] **Search in Telegram (optional)** — a search command scans place names, tags
+  and summaries and returns the few best matches with links.
+  *(done: diacritics-insensitive – "hriste" finds "hřiště"; visited ones marked ✅)*
+
+---
+
+## Phase 6 — Credibility
+
+It will not bring new users, but it raises the conversion of those who already came.
+
+- [x] **Basic tests** — at least for the pure functions: URL validation, parsing the
+  Gemini response, the dedup logic. `pytest`, without needing real API keys (mock).
+  *(done: 108 tests in `tests/` — URLs/commands/whitelist, parsing Gemini and Claude
+  responses, the dedup prefilter, search, nearby places, GeoJSON/GPX/KML export,
+  sheet row parsing; `pip install -r requirements-dev.txt && pytest`)*
+- [x] **GitHub Actions CI** — run the tests + `ruff` lint on every push, a badge in
+  the README.
+  *(done: `.github/workflows/ci.yml`, ruff configuration in `pyproject.toml`)*
+- [x] **A "Known limitations" section in the README** — FB sometimes blocks
+  datacenter IPs; describe the workaround via cookies (`--cookies` in yt-dlp), the
+  rate limits of the Gemini free tier, and the maximum video length.
+- [x] **CHANGELOG.md** — keep a brief log of changes from the first public release.
+  *(created; until the first release changes are tracked under "Unreleased")*
+
+---
+
+## Recommended order for the first week
+
+1. All of Phase 0 (a few hours, unblocks going public)
+2. Phase 1: GIF + screenshots (the highest impact on stars)
+3. Phase 2: Docker + auto-webhook
+4. Phase 3: English README
+
+"Nearby places" from Phase 5 is worth doing right away regardless of GitHub — it is
+useful for your own use. Add the rest of Phase 5 and the SQLite backend only
+according to real user interest.

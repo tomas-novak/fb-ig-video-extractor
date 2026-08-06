@@ -11,7 +11,7 @@ _model = None
 
 
 def _safe_float(v) -> float:
-    """Bezpečný převod na float – Gemini může vrátit null, prázdno nebo text."""
+    """Safe conversion to float – Gemini may return null, empty or text."""
     try:
         return float(str(v).replace(",", "."))
     except (TypeError, ValueError):
@@ -19,7 +19,7 @@ def _safe_float(v) -> float:
 
 
 def _get_model():
-    """Lazy init – Gemini se konfiguruje až při prvním použití, ne při importu."""
+    """Lazy init – Gemini is configured on first use, not at import time."""
     global _model
     if _model is None:
         api_key = os.getenv("GEMINI_API_KEY")
@@ -34,8 +34,8 @@ _VIDEO_MIME = {
     ".mkv": "video/x-matroska", ".m4v": "video/mp4", ".3gp": "video/3gpp",
 }
 
-# Prompty jsou šablony – tokeny __CATEGORIES__ apod. se dosazují přes .replace()
-# (str.format by se pral se závorkami ukázkového JSON).
+# The prompts are templates – tokens like __CATEGORIES__ are substituted via .replace()
+# (str.format would clash with the braces of the example JSON).
 _HOTEL_NOTE = {
     "cs": "\n  (hotel = video je primárně o ubytování / hotelu / penzionu / kempu)",
     "en": "\n  (hotel = the video is primarily about accommodation / a hotel / guesthouse / campsite)",
@@ -127,7 +127,7 @@ If the video has sound, transcribe the speech into the transcript field.''',
 
 
 def system_prompt() -> str:
-    """Systémový prompt v jazyce bota s kategoriemi z konfigurace."""
+    """System prompt in the bot's language with the categories from the configuration."""
     hotel_note = _HOTEL_NOTE[LANG] if "hotel" in CATEGORIES else ""
     return (_SYSTEM_PROMPT_TEMPLATES[LANG]
             .replace("__CATEGORIES__", ", ".join(CATEGORIES))
@@ -147,7 +147,7 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
     mime = _VIDEO_MIME.get(ext, "video/mp4")
     media_file = genai.upload_file(media_path, mime_type=mime)
 
-    # Video se po uploadu zpracovává; musíme počkat, než bude ACTIVE.
+    # The video is processed after upload; we have to wait until it is ACTIVE.
     waited = 0
     while media_file.state.name == "PROCESSING" and waited < 120:
         time.sleep(2)
@@ -171,14 +171,14 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
     try:
         raw = response.text.strip()
     except (ValueError, AttributeError) as e:
-        # Gemini nevrátil textovou část (bezpečnostní blok, prázdná odpověď, MAX_TOKENS bez textu)
+        # Gemini returned no text part (safety block, empty response, MAX_TOKENS without text)
         raise RuntimeError(t("gemini_no_text", error=e))
 
     return parse_metadata(raw, url, author=author, title=title)
 
 
 def strip_fences(raw: str) -> str:
-    """Odstraní případné markdown fences (```json ... ```) kolem JSON odpovědi."""
+    """Strip any markdown fences (```json ... ```) around the JSON response."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
@@ -188,8 +188,8 @@ def strip_fences(raw: str) -> str:
 
 
 def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> VideoMetadata:
-    """Převede JSON odpověď Gemini na VideoMetadata. Vyhazuje json.JSONDecodeError."""
-    # JSON mód garantuje čistý JSON, ale pro jistotu odstraníme případné fences
+    """Convert Gemini's JSON response to VideoMetadata. Raises json.JSONDecodeError."""
+    # JSON mode guarantees clean JSON, but strip any fences just in case
     data = json.loads(strip_fences(raw))
 
     return VideoMetadata(

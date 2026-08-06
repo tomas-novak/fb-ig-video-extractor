@@ -6,11 +6,11 @@ import yt_dlp
 from i18n import t
 
 
+# Fallbacks for when ffmpeg is not on PATH. Installs in non-standard locations
+# (e.g. Windows winget) are covered by the FFMPEG_LOCATION env variable.
 FFMPEG_LOCATIONS = [
-    # Linux (apt/nixpacks)
+    # Linux (apt)
     "/usr/bin/ffmpeg",
-    # Windows winget
-    r"C:\Users\novak\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe",
 ]
 
 
@@ -18,7 +18,7 @@ def _find_ffmpeg() -> str | None:
     override = os.getenv("FFMPEG_LOCATION")
     if override:
         return override
-    # Primárně přes systémovou PATH (najde apt/nix/winget instalace)
+    # Primarily via the system PATH (finds apt/nix/winget installs)
     on_path = shutil.which("ffmpeg")
     if on_path:
         return on_path
@@ -29,7 +29,7 @@ def _find_ffmpeg() -> str | None:
 
 
 def ffmpeg_diagnostics() -> dict:
-    """Diagnostika dostupnosti ffmpeg/ffprobe – pro /debug endpoint."""
+    """Diagnostics of ffmpeg/ffprobe availability – for the /debug endpoint."""
     ffmpeg = _find_ffmpeg()
     ffprobe_which = shutil.which("ffprobe")
     ffprobe_sibling = None
@@ -56,9 +56,9 @@ _cookie_path_cache = None
 
 
 def _resolve_cookies() -> str | None:
-    """Vrátí cestu k cookies souboru.
-    Lokálně: COOKIES_FILE = cesta k souboru.
-    Na serveru: INSTAGRAM_COOKIES = obsah cookies.txt (zapíše se do dočasného souboru)."""
+    """Return the path to the cookies file.
+    Locally: COOKIES_FILE = path to the file.
+    On the server: INSTAGRAM_COOKIES = contents of cookies.txt (written to a temp file)."""
     global _cookie_path_cache
     path = os.getenv("COOKIES_FILE")
     if path and os.path.exists(path):
@@ -75,16 +75,16 @@ def _resolve_cookies() -> str | None:
     return None
 
 
-# Videa delší než limit se vůbec nestahují – bot je stavěný na krátká videa
-# (Reels, TikTok, Shorts) a u dlouhých by download i upload do Gemini byly
-# pomalé a drahé. 0 = bez limitu; prázdná hodnota = výchozích 10.
+# Videos longer than the limit are not downloaded at all – the bot is built for
+# short videos (Reels, TikTok, Shorts); for long ones both the download and the
+# upload to Gemini would be slow and expensive. 0 = no limit; empty = default 10.
 MAX_VIDEO_MINUTES = int(os.getenv("MAX_VIDEO_MINUTES") or 10)
 
 
 def duration_error(info: dict) -> str | None:
-    """Hláška, když je video delší než MAX_VIDEO_MINUTES; jinak None.
-    Neznámá délka (live stream, chybějící metadata) projde – zachytí ji
-    až timeout zpracování v Gemini."""
+    """Message when the video is longer than MAX_VIDEO_MINUTES; None otherwise.
+    An unknown duration (live stream, missing metadata) passes through – it is
+    caught later by the Gemini processing timeout."""
     duration = info.get("duration") or 0
     if MAX_VIDEO_MINUTES and duration > MAX_VIDEO_MINUTES * 60:
         return t("err_video_too_long", minutes=duration / 60, limit=MAX_VIDEO_MINUTES)
@@ -92,23 +92,24 @@ def duration_error(info: dict) -> str | None:
 
 
 def download_media(url: str) -> tuple[str, dict]:
-    """Stáhne video z FB/IG. Vrací (cesta_k_videu, info_dict).
-    Stahujeme rovnou video (ne audio) – Gemini z něj přepíše zvuk i přečte text na obrazovce,
-    a hlavně nezávisíme na audio-only streamu, který FB datacentru nenabízí."""
+    """Download a video from FB/IG. Returns (media_path, info_dict).
+    We download the video directly (not audio) – Gemini transcribes its sound and reads
+    on-screen text, and above all we do not depend on the audio-only stream that FB
+    does not offer to datacenter IPs."""
     tmp_dir = tempfile.mkdtemp()
     output_template = os.path.join(tmp_dir, "%(id)s.%(ext)s")
 
     ydl_opts = {
-        # Progresivní FB formáty (hd/sd) jsou rozumně velké mp4; best jako záchrana (a pro IG).
+        # Progressive FB formats (hd/sd) are reasonably sized mp4; best as a fallback (and for IG).
         "format": "hd/sd/best",
         "outtmpl": output_template,
         "quiet": True,
         "no_warnings": True,
     }
 
-    # Cookies jsou workaround pro platformy, které z datacenter IP blokují
-    # anonymní stahování: Instagram prakticky vždy, YouTube často ("Sign in to
-    # confirm you're not a bot"). FB a TikTok zatím fungují anonymně.
+    # Cookies are a workaround for platforms that block anonymous downloads from
+    # datacenter IPs: Instagram practically always, YouTube often ("Sign in to
+    # confirm you're not a bot"). FB and TikTok still work anonymously.
     if extract_source(url) in ("instagram", "youtube"):
         cookies = _resolve_cookies()
         if cookies:
@@ -118,8 +119,8 @@ def download_media(url: str) -> tuple[str, dict]:
     if ffmpeg:
         ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg)
 
-    # match_filter přeskočí download dlouhého videa (metadata se ale vrátí,
-    # takže níže umíme vyhodit srozumitelnou chybu místo chybějícího souboru)
+    # match_filter skips downloading a long video (metadata is still returned, so
+    # below we can raise a clear error instead of failing on a missing file)
     if MAX_VIDEO_MINUTES:
         ydl_opts["match_filter"] = lambda info, *, incomplete=False: duration_error(info)
 
@@ -136,19 +137,19 @@ def download_media(url: str) -> tuple[str, dict]:
                 media_path = os.path.join(tmp_dir, files[0])
         return media_path, info
     except BaseException:
-        # Při selhání uklidíme dočasný adresář, jinak by se na serveru hromadil.
+        # On failure clean up the temp directory, otherwise it would pile up on the server.
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
 
 
 def extract_source(url: str) -> str:
-    """Platforma podle URL – hodnota pro sloupec L (Zdroj) v tabulce.
-    Pokrývá i krátké share linky (fb.watch, vm.tiktok.com, youtu.be)."""
+    """Platform derived from the URL – the value for column L (Source) in the sheet.
+    Also covers short share links (fb.watch, vm.tiktok.com, youtu.be)."""
     if "instagram.com" in url:
         return "instagram"
     if "facebook.com" in url or "fb.watch" in url:
         return "facebook"
-    if "tiktok.com" in url:  # včetně vm.tiktok.com share linků
+    if "tiktok.com" in url:  # including vm.tiktok.com share links
         return "tiktok"
     if "youtube.com" in url or "youtu.be" in url:
         return "youtube"
