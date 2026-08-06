@@ -150,6 +150,11 @@ no HTTPS/`PUBLIC_URL` to sort out (`main.py` picks up `RAILWAY_PUBLIC_DOMAIN`
 automatically). `gen_railway_env.py` generates `railway-variables.local.txt`
 from a local `.env` for quick pasting into the Railway dashboard.
 
+A public domain has to be generated in the Railway dashboard first — until it
+exists `RAILWAY_PUBLIC_DOMAIN` is unset, so `_public_url()` returns `""` and no
+webhook is registered. The deploy still passes its `/health` check, so this
+fails silently: the bot looks healthy and never replies.
+
 **Applies to all three:** only one instance may run at a time — whichever one
 registers its webhook with Telegram last receives the traffic. When switching
 between them, always genuinely stop the old instance. Clearing `PUBLIC_URL` and

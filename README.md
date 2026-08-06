@@ -118,12 +118,24 @@ again to restart with it picked up.
 **Railway (simplest, no server of your own):** connect this repo as a new
 Railway project — it auto-detects the build via `nixpacks.toml` (adds
 ffmpeg) and `railway.toml` (start command, healthcheck). Add your keys as
-Railway variables (running `python gen_railway_env.py` locally against your
-`.env` generates a paste-ready `railway-variables.local.txt` for the
-dashboard's Raw Editor). No HTTPS setup and no `PUBLIC_URL` needed — the
-bot picks up Railway's own `RAILWAY_PUBLIC_DOMAIN` automatically. Railway's
-free trial is time/usage-limited, so treat this as the option for trying
-the bot quickly rather than permanent hosting.
+Railway variables — either type them into the dashboard by hand, or run
+`python gen_railway_env.py` locally to turn your `.env` into a paste-ready
+`railway-variables.local.txt` for the dashboard's Raw Editor. That script
+needs `python-dotenv` (`pip install -r requirements.txt`, or just
+`pip install python-dotenv`); it is only a convenience, so skip it if you
+would rather not set up anything locally.
+
+**Then generate the public domain** under Settings → Networking → Generate
+Domain. This is easy to miss and there is no error if you do: without a
+domain, Railway never sets `RAILWAY_PUBLIC_DOMAIN`, so the bot registers no
+webhook — the deploy goes green and passes its healthcheck, and the bot
+simply never answers. The logs say `[webhook] neither PUBLIC_URL nor
+RAILWAY_PUBLIC_DOMAIN is set`. Once the domain exists, redeploy (or restart)
+so the bot picks it up at startup; you still do not need to set `PUBLIC_URL`
+or configure any HTTPS yourself.
+
+Railway's free trial is time/usage-limited, so treat this as the option for
+trying the bot quickly rather than permanent hosting.
 
 **Only run one instance at a time.** Whichever deployment last registers
 its webhook with Telegram is the one that receives messages — if you switch
