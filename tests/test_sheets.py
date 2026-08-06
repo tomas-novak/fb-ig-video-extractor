@@ -1,4 +1,4 @@
-"""Testy čistých funkcí ze sheets.py: normalizace URL a parsování řádků."""
+"""Tests for the pure functions in sheets.py: URL normalization and row parsing."""
 from models import VideoMetadata
 from sheets import NUM_COLS, _parse_row, normalize_url
 
@@ -49,7 +49,7 @@ class TestParseRow:
         assert _parse_row(header, 1) is None
 
     def test_zero_coords_skipped(self):
-        # 0,0 = Gemini místo neurčil – nemá co dělat na mapě
+        # 0,0 = Gemini did not determine the place – it does not belong on the map
         assert _parse_row(_row({5: "0", 6: "0"}), 2) is None
 
     def test_comma_decimal_separator(self):
@@ -57,7 +57,7 @@ class TestParseRow:
         assert p["lat"] == 50.23
 
     def test_short_row_padded(self):
-        # starší řádky nemají všechny sloupce
+        # older rows do not have all the columns
         p = _parse_row(_row()[:8], 2)
         assert p is not None
         assert p["group_id"] == ""
@@ -83,11 +83,11 @@ class TestToSheetsRow:
         assert row[1] == "https://fb.com/reel/1"
         assert row[4] == "Slaný"
         assert row[12] == "g1"      # M: group_id
-        assert row[14] == ""        # O: navštíveno – vyplňuje mapa
+        assert row[14] == ""        # O: visited – filled in by the map
         assert row[15] == "ChIJx"   # P: place_id
 
     def test_roundtrip_through_parse_row(self):
-        """to_sheets_row() -> _parse_row() musí vrátit konzistentní data."""
+        """to_sheets_row() -> _parse_row() must return consistent data."""
         m = VideoMetadata(url="https://fb.com/reel/1", location_name="Slaný",
                           lat=50.23, lng=14.09, category="koupání",
                           source="facebook", group_id="g1")

@@ -1,4 +1,4 @@
-"""Testy vyhledávání (/hledej) a řazení míst podle vzdálenosti (poslaná poloha)."""
+"""Tests for search and ordering places by distance (a shared location)."""
 from conftest import make_place
 from main import _fold, nearest_places, search_places
 
@@ -45,7 +45,7 @@ class TestSearchPlaces:
         assert len(hits) == 1
 
     def test_group_searches_all_name_variants(self):
-        # reprezentant je první řádek, ale hledat se musí i v názvech ostatních
+        # the representative is the first row, but the other rows' names must be searched too
         a = make_place(row=2, group_id="g1", location_name="Plovárna")
         b = make_place(row=3, group_id="g1", location_name="Aquapark Slaný")
         assert len(search_places([a, b], "aquapark")) == 1
@@ -76,7 +76,7 @@ class TestNearestPlaces:
         assert ranked == []
 
     def test_visited_group_excluded_entirely(self):
-        # návštěva jednoho řádku skupiny = celá skupina navštívená
+        # visiting one row of a group = the whole group is visited
         a = make_place(row=2, group_id="g1", visited=True)
         b = make_place(row=3, group_id="g1", visited=False)
         assert nearest_places([a, b], *self.USER) == []
@@ -86,7 +86,7 @@ class TestNearestPlaces:
         b = make_place(row=3, group_id="g1", lat=50.01, lng=14.0)
         ranked = nearest_places([a, b], *self.USER)
         assert len(ranked) == 1
-        assert ranked[0][1]["row"] == 3  # reprezentant = bližší záznam
+        assert ranked[0][1]["row"] == 3  # representative = the closer entry
 
     def test_distance_value(self):
         p = make_place(row=2, lat=51.0, lng=14.0)  # ~111 km na sever

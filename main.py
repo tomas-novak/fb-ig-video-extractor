@@ -24,10 +24,10 @@ BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
-# Čárkou oddělená Telegram user ID, která smí bota používat. Prázdné = kdokoliv.
+# Comma-separated Telegram user IDs allowed to use the bot. Empty = anyone.
 def _parse_allowed_users(raw: str) -> set[int]:
-    """Fail closed: neplatná položka (překlep, @username...) je chyba konfigurace –
-    radši spadnout při startu než tiše zpřístupnit bota všem."""
+    """Fail closed: an invalid item (typo, @username...) is a configuration error –
+    better to crash at startup than to quietly expose the bot to everyone."""
     tokens = [t.strip() for t in raw.split(",") if t.strip()]
     invalid = [t for t in tokens if not t.isdigit()]
     if invalid:
@@ -46,19 +46,19 @@ def is_authorized(user_id: int | None) -> bool:
 
 
 def is_command(text: str, *cmds: str) -> bool:
-    """Přesná shoda příkazu: '/id' i '/id@NazevBota', ale ne '/idea'.
-    Více názvů = aliasy (české a anglické příkazy fungují vždy oba)."""
+    """Exact command match: '/id' and '/id@BotName', but not '/idea'.
+    Multiple names = aliases (Czech and English commands always both work)."""
     parts = text.split()
     first = parts[0].lower() if parts else ""
     return any(first == cmd or first.startswith(cmd + "@") for cmd in cmds)
 
 
-# Token chránící mapová data (/data, /visited, /delete). Prázdné = mapa veřejná.
+# Token protecting the map data (/data, /visited, /delete). Empty = public map.
 MAP_TOKEN = os.getenv("MAP_TOKEN", "")
-# Volitelný read-only token pro sdílení mapy (jen prohlížení, žádné mazání/visited).
+# Optional read-only token for sharing the map (view only, no deleting/visited).
 MAP_VIEW_TOKEN = os.getenv("MAP_VIEW_TOKEN", "")
 
-# Fail closed: view token bez hlavního tokenu by mapu tiše nechal úplně veřejnou.
+# Fail closed: a view token without the main token would quietly leave the map fully public.
 if MAP_VIEW_TOKEN and not MAP_TOKEN:
     raise ValueError("MAP_VIEW_TOKEN is set without MAP_TOKEN – the map would stay "
                      "public. Set MAP_TOKEN as well, or remove MAP_VIEW_TOKEN.")
@@ -68,14 +68,14 @@ if MAP_VIEW_TOKEN and MAP_VIEW_TOKEN == MAP_TOKEN:
 
 
 def _token_matches(supplied: str, expected: str) -> bool:
-    # encode: compare_digest se str argumenty vyžaduje ASCII – ne-ASCII vstup
-    # by shodil 500 místo čistého 403
+    # encode: compare_digest with str arguments requires ASCII – non-ASCII input
+    # would raise a 500 instead of a clean 403
     return bool(expected) and secrets.compare_digest(supplied.encode(), expected.encode())
 
 
 def check_map_token(request: Request, write: bool = True) -> None:
-    """Ověří ?token= v URL. write=True vyžaduje hlavní MAP_TOKEN,
-    write=False pustí i read-only MAP_VIEW_TOKEN. Bez MAP_TOKEN je vše veřejné."""
+    """Verify ?token= in the URL. write=True requires the main MAP_TOKEN,
+    write=False also accepts the read-only MAP_VIEW_TOKEN. Without MAP_TOKEN everything is public."""
     if not MAP_TOKEN:
         return
     supplied = request.query_params.get("token", "")
@@ -87,14 +87,14 @@ def check_map_token(request: Request, write: bool = True) -> None:
 
 
 def can_edit_map(request: Request) -> bool:
-    """True, když má požadavek plná práva (mazání, visited)."""
+    """True when the request has full permissions (deleting, visited)."""
     if not MAP_TOKEN:
         return True
     return _token_matches(request.query_params.get("token", ""), MAP_TOKEN)
 
 
 def _public_url() -> str:
-    """Veřejná adresa instance: PUBLIC_URL, nebo automaticky z Railway."""
+    """Public address of the instance: PUBLIC_URL, or automatically from Railway."""
     explicit = os.getenv("PUBLIC_URL", "").rstrip("/")
     if explicit:
         return explicit
@@ -104,8 +104,8 @@ def _public_url() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-registrace Telegram webhooku – odpadá ruční krok při nasazení.
-    # Chyba nesmí zabránit startu (Telegram může být chvíli nedostupný).
+    # Auto-registration of the Telegram webhook – removes a manual deployment step.
+    # A failure must not prevent startup (Telegram may be briefly unavailable).
     url = _public_url()
     if url:
         try:
@@ -125,12 +125,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Drží silné reference na běžící background tasky, aby je GC nesebral uprostřed běhu.
+# Holds strong references to running background tasks so the GC does not collect them mid-run.
 _background_tasks: set = set()
 
 
-# Sdílený HTTP klient pro Telegram API – vytváří se líně při prvním volání
-# (funguje tak i CLI --set-webhook mimo lifespan), zavírá se při shutdownu.
+# Shared HTTP client for the Telegram API – created lazily on first call
+# (so CLI --set-webhook works outside the lifespan too), closed on shutdown.
 _telegram_client: httpx.AsyncClient | None = None
 
 
@@ -147,13 +147,13 @@ async def close_telegram_client() -> None:
 
 
 async def telegram_call(method: str, payload: dict) -> dict:
-    """Jediné místo pro volání Telegram Bot API – timeouty, retry apod.
-    se případně mění tady, ne v jednotlivých obálkách.
+    """The single place for calling the Telegram Bot API – timeouts, retries etc.
+    are changed here if needed, not in the individual wrappers.
 
-    Obsah odpovědi nikdy nevyhazuje výjimku: ne-JSON tělo (třeba HTML 502
-    od proxy) ani {"ok": false} nesmí shodit webhook handler – zaloguje se
-    a vrátí volajícímu. Síťové chyby (timeout, spadlé spojení) propadají
-    dál jako dřív."""
+    The response body never raises: neither a non-JSON body (e.g. an HTML 502
+    from a proxy) nor {"ok": false} may crash the webhook handler – it is logged
+    and returned to the caller. Network errors (timeout, dropped connection)
+    still propagate as before."""
     r = await _get_telegram_client().post(f"{TELEGRAM_API}/{method}", json=payload)
     try:
         result = r.json()
@@ -184,7 +184,7 @@ def is_valid_url(text: str) -> bool:
 
 
 def friendly_error(err: str) -> str:
-    """Přeloží technickou chybu na srozumitelnou hlášku pro uživatele."""
+    """Translate a technical error into a message the user can understand."""
     low = err.lower()
     if "no video formats" in low or "no video" in low:
         return t("err_photo")
@@ -193,6 +193,7 @@ def friendly_error(err: str) -> str:
         return t("err_login")
     if "unsupported url" in low or "unsupported" in low:
         return t("err_unsupported")
+    # matches err_video_too_long in both languages – "příliš dlouhé" is the Czech wording
     if "příliš dlouhé" in low or "too long" in low:
         return t("err_too_long", err=err)
     if "sign in to confirm" in low or "not a bot" in low:
@@ -204,7 +205,7 @@ def friendly_error(err: str) -> str:
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    # Volitelné ověření secret tokenu
+    # Optional secret token verification
     if WEBHOOK_SECRET:
         token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
         if token != WEBHOOK_SECRET:
@@ -212,11 +213,11 @@ async def webhook(request: Request):
 
     update = await request.json()
 
-    # Odpověď na tlačítka Sloučit/Ponechat u návrhů duplikátů
+    # Response to the Merge/Keep buttons on duplicate suggestions
     callback = update.get("callback_query")
     if callback:
         if not is_authorized((callback.get("from") or {}).get("id")):
-            # odpovědět prázdně, ať cizímu uživateli nevisí "točící se" tlačítko
+            # answer with nothing so an outside user is not left with a "spinning" button
             await answer_callback(callback["id"])
             return {"ok": True}
         task = asyncio.create_task(handle_callback(callback))
@@ -232,7 +233,7 @@ async def webhook(request: Request):
     text = (message.get("text") or "").strip()
     user_id = (message.get("from") or {}).get("id")
 
-    # /id funguje pro každého – potřebné pro prvotní nastavení whitelistu
+    # /id works for everyone – needed for the initial whitelist setup
     if is_command(text, *command_aliases("id")) and user_id is not None:
         await send_message(chat_id, t("id_reply", user_id=user_id))
         return {"ok": True}
@@ -240,15 +241,15 @@ async def webhook(request: Request):
     if not is_authorized(user_id):
         if user_id is not None:
             await send_message(chat_id, t("private_bot", user_id=user_id))
-        # channel_post bez odesílatele při zapnutém whitelistu tiše ignorovat
+        # silently ignore a channel_post without a sender when the whitelist is on
         return {"ok": True}
 
-    # Příkaz: nápověda (posílá se i jako reakce na jakýkoliv ne-URL text níže)
+    # Command: help (also sent as a reply to any non-URL text below)
     if is_command(text, *command_aliases("help")):
         await send_message(chat_id, help_text())
         return {"ok": True}
 
-    # Poslaná poloha -> nejbližší uložená místa
+    # Shared location -> closest saved places
     location = message.get("location")
     if location and "latitude" in location:
         task = asyncio.create_task(
@@ -257,7 +258,7 @@ async def webhook(request: Request):
         task.add_done_callback(_background_tasks.discard)
         return {"ok": True}
 
-    # Příkaz: fulltextové hledání v uložených místech
+    # Command: full-text search in saved places
     if is_command(text, *command_aliases("search")):
         parts = text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
@@ -268,7 +269,7 @@ async def webhook(request: Request):
         task.add_done_callback(_background_tasks.discard)
         return {"ok": True}
 
-    # Příkaz: kontrola duplicitních míst
+    # Command: duplicate place check
     if is_command(text, *command_aliases("dedup")):
         await send_message(chat_id, t("dedup_started"))
         task = asyncio.create_task(run_dedup_check(chat_id))
@@ -280,8 +281,8 @@ async def webhook(request: Request):
         await send_message(chat_id, help_text())
         return {"ok": True}
 
-    # Zpracování v background tasku aby webhook rychle odpověděl.
-    # Referenci držíme v _background_tasks, jinak ji může GC sebrat uprostřed běhu.
+    # Processed in a background task so the webhook responds quickly.
+    # The reference is kept in _background_tasks, otherwise the GC could collect it mid-run.
     task = asyncio.create_task(process_video(chat_id, text))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
@@ -292,7 +293,7 @@ async def webhook(request: Request):
 async def process_video(chat_id: int, url: str) -> None:
     media_path = None
     try:
-        # 1) Rychlá kontrola duplicity podle URL (před stahováním, zdarma)
+        # 1) Quick duplicate check by URL (before downloading, free)
         dup = await asyncio.to_thread(find_duplicate, url)
         if dup:
             await send_message(chat_id, t("dup_saved", name=dup["location_name"],
@@ -301,10 +302,10 @@ async def process_video(chat_id: int, url: str) -> None:
 
         await send_message(chat_id, t("processing"))
 
-        # 2) Stažení videa
+        # 2) Download the video
         media_path, yt_info = await asyncio.to_thread(download_media, url)
 
-        # 3) Kontrola duplicity podle ID videa (chytí i jiný tvar odkazu na totéž video)
+        # 3) Duplicate check by video ID (also catches a different link form of the same video)
         video_id = str(yt_info.get("id") or "")
         if video_id:
             dup = await asyncio.to_thread(find_duplicate, "", video_id)
@@ -313,11 +314,11 @@ async def process_video(chat_id: int, url: str) -> None:
                                               date=dup["date"]))
                 return
 
-        # 4) Analýza přes Gemini
+        # 4) Analysis via Gemini
         metadata = await asyncio.to_thread(analyze, media_path, url, yt_info)
         metadata.video_id = video_id
 
-        # 5) Geokódování: přesné souřadnice + place_id + odkaz na Google Maps
+        # 5) Geocoding: exact coordinates + place_id + Google Maps link
         geo = await asyncio.to_thread(geocode, metadata.location_name, metadata.city)
         if geo:
             metadata.lat = geo["lat"]
@@ -329,7 +330,7 @@ async def process_video(chat_id: int, url: str) -> None:
             metadata.maps_url = maps_link(name=metadata.location_name)
             metadata.geo_source = "gemini"
 
-        # 6) Stejné místo (place_id) už existuje? -> rovnou do stejné skupiny
+        # 6) Does the same place (place_id) already exist? -> put it straight into the same group
         group_note = ""
         if metadata.place_id:
             match = await asyncio.to_thread(find_by_place_id, metadata.place_id)
@@ -340,10 +341,10 @@ async def process_video(chat_id: int, url: str) -> None:
                 metadata.group_id = group
                 group_note = t("group_note", name=match["location_name"])
 
-        # 7) Uložení do Sheets
+        # 7) Save to Sheets
         await asyncio.to_thread(append_row, metadata)
 
-        # 8) Odpověď uživateli
+        # 8) Reply to the user
         precision = "" if metadata.geo_source == "places" else t("precision_note")
         reply = t("saved", name=metadata.location_name, category=metadata.category,
                   tags=metadata.tags, summary=metadata.summary,
@@ -367,13 +368,13 @@ SEARCH_LIMIT = 5
 
 
 def _fold(s: str) -> str:
-    """lowercase + odstranění diakritiky ('Hřiště' -> 'hriste')."""
+    """lowercase + diacritics removal ('Hřiště' -> 'hriste')."""
     return "".join(c for c in unicodedata.normalize("NFD", s.lower())
                    if not unicodedata.combining(c))
 
 
 def search_places(places: list[dict], query: str) -> list[dict]:
-    """Fulltext v názvu (váha 3), tazích (2) a shrnutí (1). Skupiny jednou."""
+    """Full-text over the name (weight 3), tags (2) and summary (1). Groups counted once."""
     q = _fold(query.strip())
     if not q:
         return []
@@ -386,7 +387,7 @@ def search_places(places: list[dict], query: str) -> list[dict]:
     for group in groups.values():
         rep = group[0]
         score = 0
-        # Sloučené řádky mohou mít různé varianty názvu – hledat ve všech
+        # Merged rows may carry different name variants – search all of them
         if any(q in _fold(p["location_name"]) for p in group):
             score += 3
         if any(q in _fold(p["tags"]) for p in group):
@@ -419,8 +420,8 @@ async def handle_search(chat_id: int, query: str) -> None:
 
 
 def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[float, dict]]:
-    """Nenavštívená místa seřazená podle vzdálenosti od dané polohy.
-    Sloučené skupiny (group_id) počítá jednou. Vrací [(vzdálenost_km, místo), ...]."""
+    """Unvisited places sorted by distance from the given location.
+    Merged groups (group_id) are counted once. Returns [(distance_km, place), ...]."""
     groups: dict[str, list[dict]] = {}
     for p in places:
         key = p["group_id"] or f"solo-{p['row']}"
@@ -430,8 +431,8 @@ def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[flo
     for group in groups.values():
         if any(p["visited"] for p in group):
             continue
-        # Řádky skupiny mohou mít různé souřadnice (např. sloučení dvou odhadů) –
-        # reprezentantem je záznam nejblíž k uživateli, ne group[0]
+        # Rows in a group may have different coordinates (e.g. merging two estimates) –
+        # the representative is the entry closest to the user, not group[0]
         rep = min(group, key=lambda p: distance_km(lat, lng, p["lat"], p["lng"]))
         result.append((distance_km(lat, lng, rep["lat"], rep["lng"]), rep))
     result.sort(key=lambda x: x[0])
@@ -439,7 +440,7 @@ def nearest_places(places: list[dict], lat: float, lng: float) -> list[tuple[flo
 
 
 async def handle_location(chat_id: int, lat: float, lng: float) -> None:
-    """Odpoví seznamem nejbližších uložených (nenavštívených) míst."""
+    """Reply with a list of the closest saved (unvisited) places."""
     try:
         places = await asyncio.to_thread(read_rows)
         ranked = nearest_places(places, lat, lng)
@@ -467,7 +468,7 @@ async def handle_location(chat_id: int, lat: float, lng: float) -> None:
 
 
 async def run_dedup_check(chat_id: int) -> None:
-    """Najde podezřelé duplikáty (Claude) a pošle návrhy s tlačítky Sloučit/Ponechat."""
+    """Find suspected duplicates (Claude) and send suggestions with Merge/Keep buttons."""
     try:
         places = await asyncio.to_thread(read_rows)
         suggestions = await asyncio.to_thread(find_duplicates, places)
@@ -494,7 +495,7 @@ async def run_dedup_check(chat_id: int) -> None:
 
 
 async def handle_callback(callback: dict) -> None:
-    """Zpracuje kliknutí na tlačítko Sloučit/Ponechat."""
+    """Handle a click on the Merge/Keep button."""
     callback_id = callback["id"]
     chat_id = callback["message"]["chat"]["id"]
     data = callback.get("data") or ""
@@ -509,7 +510,7 @@ async def handle_callback(callback: dict) -> None:
             _, row_a, row_b = data.split(":")
             row_a, row_b = int(row_a), int(row_b)
 
-            # Sloučení = oběma řádkům stejné group_id (zachová existující skupinu, jinak nová)
+            # Merging = the same group_id on both rows (keeps an existing group, otherwise a new one)
             places = await asyncio.to_thread(read_rows)
             by_row = {p["row"]: p for p in places}
             a, b = by_row.get(row_a), by_row.get(row_b)
@@ -547,7 +548,7 @@ async def data(request: Request):
     check_map_token(request, write=False)
     try:
         places = await asyncio.to_thread(read_rows)
-        # Mapa podle hlavičky pozná, zda smí ukázat tlačítka mazání/visited
+        # The header tells the map whether it may show the delete/visited buttons
         headers = {"X-Can-Edit": "1" if can_edit_map(request) else "0"}
         return JSONResponse(places, headers=headers)
     except Exception as e:
@@ -555,8 +556,8 @@ async def data(request: Request):
 
 
 def _export_places(places: list[dict]) -> list[dict]:
-    """Jedno místo na skupinu (group_id), stejně jako na mapě.
-    Stav navštíveno se agreguje přes celou skupinu (shodně s mapou)."""
+    """One place per group (group_id), the same as on the map.
+    The visited state is aggregated across the whole group (consistently with the map)."""
     groups: dict[str, list[dict]] = {}
     for p in places:
         key = p["group_id"] or f"solo-{p['row']}"
@@ -568,7 +569,7 @@ def _export_places(places: list[dict]) -> list[dict]:
 
 
 def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
-    """Vrátí (obsah, media_type, přípona) pro geojson/gpx/kml."""
+    """Return (content, media_type, extension) for geojson/gpx/kml."""
     import json as _json
     from xml.sax.saxutils import escape
 
@@ -627,7 +628,7 @@ def _build_export(places: list[dict], fmt: str) -> tuple[str, str, str]:
 
 @app.get("/export")
 async def export(request: Request, format: str = "geojson"):
-    """Export míst pro import do Mapy.cz, Organic Maps, Google My Maps..."""
+    """Export places for import into Mapy.cz, Organic Maps, Google My Maps..."""
     check_map_token(request, write=False)
     try:
         places = await asyncio.to_thread(read_rows)
@@ -643,7 +644,7 @@ async def export(request: Request, format: str = "geojson"):
 
 @app.post("/visited")
 async def visited(request: Request):
-    """Označí místa (řádky) jako navštívená/nenavštívená – volá mapa."""
+    """Mark places (rows) as visited/unvisited – called by the map."""
     check_map_token(request)
     try:
         data = await request.json()
@@ -659,7 +660,7 @@ async def visited(request: Request):
 
 @app.post("/delete")
 async def delete_place(request: Request):
-    """Smaže místo (řádky) z tabulky – volá mapa po dvoufázovém potvrzení."""
+    """Delete a place (rows) from the sheet – called by the map after two-phase confirmation."""
     check_map_token(request)
     try:
         data = await request.json()
@@ -677,7 +678,7 @@ async def map_view():
     return HTMLResponse(render_map())
 
 
-# Registrace webhooku (volá se automaticky při startu, ručně přes --set-webhook)
+# Webhook registration (called automatically at startup, manually via --set-webhook)
 async def set_webhook(public_url: str):
     params = {"url": f"{public_url}/webhook"}
     if WEBHOOK_SECRET:
@@ -686,7 +687,7 @@ async def set_webhook(public_url: str):
     print(f"[webhook] setWebhook {public_url}/webhook -> {result}")
 
 
-# Registrace příkazů do menu Telegramu – nabídka po napsání „/“ v chatu
+# Registering commands in the Telegram menu – the list shown after typing "/" in a chat
 async def set_my_commands():
     result = await telegram_call("setMyCommands", {"commands": menu_commands()})
     print(f"[commands] setMyCommands -> {result}")
@@ -698,7 +699,7 @@ if __name__ == "__main__":
         public_url = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else input("Public URL: ")
 
         async def _cli_set_webhook():
-            # běží mimo lifespan – sdílený klient je nutné zavřít ručně
+            # runs outside the lifespan – the shared client must be closed manually
             try:
                 await set_webhook(public_url)
             finally:
@@ -707,9 +708,9 @@ if __name__ == "__main__":
         asyncio.run(_cli_set_webhook())
     else:
         import uvicorn
-        # HOST=127.0.0.1 při nasazení za reverse proxy (Caddy/nginx) – aplikace pak
-        # není dostupná přímo zvenku. Výchozí 0.0.0.0 kvůli Dockeru a kontejnerům.
-        # "or" místo výchozí hodnoty v getenv: prázdná proměnná v .env (HOST=)
-        # se musí chovat jako nenastavená, jinak by int("") shodilo start.
+        # HOST=127.0.0.1 when deploying behind a reverse proxy (Caddy/nginx) – the app
+        # is then not reachable directly from outside. Default 0.0.0.0 for Docker/containers.
+        # "or" instead of a getenv default: an empty variable in .env (HOST=) must
+        # behave as unset, otherwise int("") would crash the startup.
         uvicorn.run("main:app", host=os.getenv("HOST") or "0.0.0.0",
                     port=int(os.getenv("PORT") or 8000), reload=False)

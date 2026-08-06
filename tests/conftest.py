@@ -1,32 +1,32 @@
-"""Společné nastavení testů.
+"""Shared test setup.
 
-Testy běží bez reálných API klíčů – main.py ale čte TELEGRAM_BOT_TOKEN
-už při importu, proto ho nastavíme dřív, než se cokoliv importuje.
+The tests run without real API keys – but main.py reads TELEGRAM_BOT_TOKEN
+at import time, so we set it before anything is imported.
 """
 import os
 import sys
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:TEST_TOKEN_NOT_REAL")
 
-# Izolace od lokálního .env (main.py volá load_dotenv(), který existující
-# proměnné nepřepisuje): tyto proměnné mají v main.py fail-closed validaci
-# při importu a vývojářova konfigurace by jinak mohla shodit celou test suite.
+# Isolation from a local .env (main.py calls load_dotenv(), which does not
+# overwrite existing variables): these variables have fail-closed validation at
+# import time in main.py, and a developer's config could otherwise break the suite.
 for _var in ("TELEGRAM_ALLOWED_USERS", "MAP_TOKEN", "MAP_VIEW_TOKEN",
              "CATEGORIES"):
     os.environ[_var] = ""
-# Testovací fixtures a asserty jsou psané česky – jazyk zafixujeme na cs
-# bez ohledu na výchozí hodnotu (en) i na vývojářův .env.
+# The test fixtures and assertions are written in Czech – pin the language to cs
+# regardless of the default value (en) and of the developer's .env.
 os.environ["BOT_LANGUAGE"] = "cs"
-# Limit délky videa čte extractor.py při importu – nevalidní hodnota
-# ve vývojářově .env by shodila import; testy počítají s výchozí 10.
+# extractor.py reads the video length limit at import time – an invalid value
+# in a developer's .env would break the import; the tests assume the default 10.
 os.environ["MAX_VIDEO_MINUTES"] = "10"
 
-# Import modulů projektu z kořene repa (testy běží z podsložky tests/)
+# Import project modules from the repo root (tests run from the tests/ subfolder)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def make_place(**overrides) -> dict:
-    """Továrna na místo ve tvaru, který vrací sheets.read_rows()."""
+    """Factory for a place in the shape returned by sheets.read_rows()."""
     place = {
         "row": 2,
         "date": "2026-07-01 12:00",

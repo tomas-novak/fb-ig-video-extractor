@@ -1,4 +1,4 @@
-"""Testy haversine vzdálenosti a stavby odkazů na Google Maps."""
+"""Tests for the haversine distance and building Google Maps links."""
 import pytest
 
 from geocoder import distance_km, maps_link
@@ -9,7 +9,7 @@ class TestDistanceKm:
         assert distance_km(50.0, 14.0, 50.0, 14.0) == 0.0
 
     def test_prague_brno(self):
-        # Praha–Brno vzdušnou čarou ~185 km
+        # Prague–Brno as the crow flies ~185 km
         d = distance_km(50.0755, 14.4378, 49.1951, 16.6068)
         assert d == pytest.approx(185, abs=5)
 
@@ -18,7 +18,7 @@ class TestDistanceKm:
             distance_km(51.0, 15.0, 50.0, 14.0))
 
     def test_one_latitude_degree(self):
-        # 1° šířky ≈ 111 km kdekoliv na Zemi
+        # 1° of latitude ≈ 111 km anywhere on Earth
         assert distance_km(50.0, 14.0, 51.0, 14.0) == pytest.approx(111, abs=1)
 
 
@@ -39,7 +39,7 @@ class TestMapsLink:
         assert maps_link(place_id="ChIJabc") == ""
 
     def test_no_legacy_place_format(self):
-        # starý formát ?q=place_id: mobilní aplikace neumí otevřít
+        # the old ?q=place_id: format cannot be opened by the mobile app
         url = maps_link(place_id="ChIJabc", lat=50.0, lng=14.0)
         assert "/maps/place/?q=place_id:" not in url
 

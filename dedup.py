@@ -1,7 +1,8 @@
-"""Kontrola duplicitních míst: předfiltr podle vzdálenosti + verdikt od Claude.
+"""Duplicate place check: distance prefilter + a verdict from Claude.
 
-Volá se na povel (/zkontroluj v Telegramu). Nic nemění automaticky –
-vrací návrhy, o sloučení rozhoduje uživatel tlačítky v Telegramu.
+Runs on demand (the dedup command in Telegram). It changes nothing
+automatically – it returns suggestions and the user decides about merging
+using the buttons in Telegram.
 """
 import json
 import os
@@ -10,7 +11,7 @@ import anthropic
 from geocoder import distance_km as _distance_km
 from i18n import t
 
-MAX_DISTANCE_KM = 8.0  # souřadnice od Gemini jsou odhady, u stejného místa i ~5,5 km od sebe (Chvojenec)
+MAX_DISTANCE_KM = 8.0  # Gemini coordinates are estimates; the same place can land ~5.5 km apart (Chvojenec)
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 _client = None
@@ -26,12 +27,12 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def find_candidate_pairs(places: list[dict]) -> list[tuple[dict, dict, float]]:
-    """Najde páry míst blíž než MAX_DISTANCE_KM, které ještě nejsou ve stejné skupině."""
+    """Find pairs of places closer than MAX_DISTANCE_KM that are not already in the same group."""
     pairs = []
     for i in range(len(places)):
         for j in range(i + 1, len(places)):
             a, b = places[i], places[j]
-            # už sloučené (stejné neprázdné group_id) přeskočit
+            # skip already merged ones (same non-empty group_id)
             if a["group_id"] and a["group_id"] == b["group_id"]:
                 continue
             d = _distance_km(a["lat"], a["lng"], b["lat"], b["lng"])
@@ -41,25 +42,25 @@ def find_candidate_pairs(places: list[dict]) -> list[tuple[dict, dict, float]]:
 
 
 def judge_pair(a: dict, b: dict, distance_km: float) -> dict:
-    """Zeptá se Claude, zda jde o stejné místo. Vrací {same: bool, reason: str}."""
+    """Ask Claude whether this is the same place. Returns {same: bool, reason: str}."""
     client = _get_client()
-    prompt = f"""Porovnej dva záznamy míst z cestovní mapy a rozhodni, zda jde o STEJNÉ místo (jen jinak pojmenované/zaměřené), nebo o dvě RŮZNÁ místa.
+    prompt = f"""Compare two place entries from a travel map and decide whether they are the SAME place (just named/pinned differently), or two DIFFERENT places.
 
-Záznam A:
-- Název: {a['location_name']}
-- Souřadnice: {a['lat']}, {a['lng']}
-- Kategorie: {a['category']}
-- Shrnutí: {a['summary'][:300]}
+Entry A:
+- Name: {a['location_name']}
+- Coordinates: {a['lat']}, {a['lng']}
+- Category: {a['category']}
+- Summary: {a['summary'][:300]}
 
-Záznam B:
-- Název: {b['location_name']}
-- Souřadnice: {b['lat']}, {b['lng']}
-- Kategorie: {b['category']}
-- Shrnutí: {b['summary'][:300]}
+Entry B:
+- Name: {b['location_name']}
+- Coordinates: {b['lat']}, {b['lng']}
+- Category: {b['category']}
+- Summary: {b['summary'][:300]}
 
-Vzdálenost mezi souřadnicemi: {distance_km:.2f} km (pozor, souřadnice jsou odhady AI, mohou být nepřesné).
+Distance between the coordinates: {distance_km:.2f} km (note that the coordinates are AI estimates and may be imprecise).
 
-Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění {t('dedup_reason_lang')} (max 1 věta)"}}"""
+Return ONLY JSON: {{"same": true/false, "reason": "short justification {t('dedup_reason_lang')} (max 1 sentence)"}}"""
 
     msg = client.messages.create(
         model=CLAUDE_MODEL,
@@ -70,7 +71,7 @@ Vrať POUZE JSON: {{"same": true/false, "reason": "krátké zdůvodnění {t('de
 
 
 def parse_verdict(raw: str) -> dict:
-    """Parsuje JSON verdikt od Claude. Neparsovatelná odpověď = ne-duplikát (fail safe)."""
+    """Parse Claude's JSON verdict. An unparseable response = not a duplicate (fail safe)."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
@@ -84,17 +85,17 @@ def parse_verdict(raw: str) -> dict:
 
 
 def find_duplicates(places: list[dict]) -> list[dict]:
-    """Kompletní kontrola: předfiltr + place_id shoda / Claude verdikty.
-    Vrací seznam návrhů: {a, b, distance_km, reason} jen pro páry označené jako stejné."""
+    """Full check: prefilter + place_id match / Claude verdicts.
+    Returns a list of suggestions: {a, b, distance_km, reason} only for pairs marked as the same."""
     suggestions = []
     for a, b, d in find_candidate_pairs(places):
         pid_a, pid_b = a.get("place_id", ""), b.get("place_id", "")
         if pid_a and pid_b:
             if pid_a == pid_b:
-                # Stejné Google místo – jistá shoda, Claude není potřeba
+                # Same Google place – a certain match, no need for Claude
                 suggestions.append({"a": a, "b": b, "distance_km": d,
                                     "reason": t("dedup_reason_place_id")})
-            # různá place_id = různá místa -> přeskočit (bez dotazu na Claude)
+            # different place_id = different places -> skip (without asking Claude)
             continue
         verdict = judge_pair(a, b, d)
         if verdict["same"]:

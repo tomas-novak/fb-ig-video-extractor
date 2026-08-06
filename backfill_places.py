@@ -1,7 +1,7 @@
-"""Jednorázový backfill: přegeokóduje existující záznamy přes Google Places.
+"""One-off backfill: re-geocodes existing entries via Google Places.
 
-Doplnní sloupce P (place_id), Q (maps_url), R (geo_source) a opraví F/G (lat/lng).
-Spouštět lokálně: venv\\Scripts\\python backfill_places.py [--dry-run]
+Fills in columns P (place_id), Q (maps_url), R (geo_source) and fixes F/G (lat/lng).
+Run locally: venv\\Scripts\\python backfill_places.py [--dry-run]
 """
 import sys
 from dotenv import load_dotenv
@@ -26,7 +26,7 @@ for i, row in enumerate(values, start=1):
         row = row + [""] * (NUM_COLS - len(row))
     name = (row[4] or "").strip()
     if not name:
-        continue  # hlavička / nevalidní řádek
+        continue  # header / invalid row
     try:
         old_lat = float(str(row[5]).replace(",", "."))
         old_lng = float(str(row[6]).replace(",", "."))
@@ -34,18 +34,18 @@ for i, row in enumerate(values, start=1):
         continue
     pid = (row[15] or "").strip()
     if pid:
-        # place_id už má – jen případná oprava starého formátu odkazu,
-        # který mobilní aplikace Google Maps neuměla otevřít
+        # already has a place_id – only fix the old link format that the
+        # Google Maps mobile app could not open
         if "/maps/place/?q=place_id:" in (row[16] or ""):
             updates.append(gspread.Cell(row=i, col=17,
                                         value=maps_link(pid, lat=old_lat, lng=old_lng)))
-            report.append(f"radek {i}: {name} -> opraven format maps_url")
+            report.append(f"row {i}: {name} -> maps_url format fixed")
         continue
 
     geo = geocode(name)
     if geo:
         dist = _distance_km(old_lat, old_lng, geo["lat"], geo["lng"])
-        report.append(f"radek {i}: {name} -> posun {dist:.1f} km ({geo['address'][:60]})")
+        report.append(f"row {i}: {name} -> moved {dist:.1f} km ({geo['address'][:60]})")
         updates += [
             gspread.Cell(row=i, col=6, value=geo["lat"]),
             gspread.Cell(row=i, col=7, value=geo["lng"]),
@@ -54,16 +54,16 @@ for i, row in enumerate(values, start=1):
             gspread.Cell(row=i, col=18, value="places"),
         ]
     else:
-        report.append(f"radek {i}: {name} -> NENALEZENO (ponechan odhad Gemini)")
+        report.append(f"row {i}: {name} -> NOT FOUND (keeping Gemini estimate)")
         updates += [
             gspread.Cell(row=i, col=17, value=maps_link(name=name)),
             gspread.Cell(row=i, col=18, value="gemini"),
         ]
 
 print("\n".join(report))
-print(f"\nCelkem bunek k zapisu: {len(updates)}")
+print(f"\nTotal cells to write: {len(updates)}")
 if DRY_RUN:
-    print("DRY RUN - nic nezapsano.")
+    print("DRY RUN - nothing written.")
 elif updates:
     sheet.update_cells(updates, value_input_option="USER_ENTERED")
-    print("ZAPSANO.")
+    print("WRITTEN.")

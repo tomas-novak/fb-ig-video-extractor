@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Aktualizace nasazené instance – náhrada za automatický deploy z Railway.
+# Update a deployed instance.
 #
-# Použití:
+# Usage:
 #   sudo /opt/fbig-bot/deploy/update.sh
 #
-# Co dělá:
-#   1. stáhne novou verzi kódu z gitu
-#   2. doinstaluje závislosti
-#   3. aktualizuje yt-dlp (viz poznámka níže)
-#   4. restartuje službu a zkontroluje, že naběhla
+# What it does:
+#   1. pulls the new version of the code from git
+#   2. installs dependencies
+#   3. updates yt-dlp (see the note below)
+#   4. restarts the service and checks that it came up
 #
-# Podrobný postup: docs/deploy-vps.md
+# Detailed guide: docs/deploy-vps.md
 
 set -euo pipefail
 
@@ -18,38 +18,38 @@ APP_DIR="${APP_DIR:-/opt/fbig-bot}"
 SERVICE="${SERVICE:-fbig-bot}"
 APP_USER="${APP_USER:-fbigbot}"
 
-# Vše je zabalené ve funkci, která se volá až na posledním řádku souboru.
-# Bash tak má celý skript načtený dřív, než ho git pull níže může přepsat –
-# tenhle soubor je totiž součástí aktualizovaného repozitáře.
+# Everything is wrapped in a function that is only called on the last line of the
+# file. That way bash has the whole script loaded before the git pull below can
+# overwrite it – this file is itself part of the updated repository.
 main() {
 	cd "$APP_DIR"
 
-	echo "==> Stahuji novou verzi kódu"
+	echo "==> Pulling the new version of the code"
 	sudo -u "$APP_USER" git pull --ff-only
 
-	echo "==> Instaluji závislosti"
+	echo "==> Installing dependencies"
 	sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install --quiet -r requirements.txt
 
-	# yt-dlp je v requirements.txt připnutý na konkrétní verzi, ale sociální sítě
-	# mění formáty průběžně a stará verze prostě přestane stahovat. Proto se tady
-	# vždy vytáhne nejnovější. Musí to být až po instalaci requirements.txt,
-	# jinak by ho pin stáhl zpátky dolů. Když se ukáže, že novější verze funguje
-	# lépe, vyplatí se pin v requirements.txt v repu zvednout.
-	echo "==> Aktualizuji yt-dlp"
+	# yt-dlp is pinned to a specific version in requirements.txt, but social networks
+	# keep changing their formats and an old version simply stops downloading. That is
+	# why the latest one is always pulled here. It has to happen after installing
+	# requirements.txt, otherwise the pin would drag it back down. When a newer version
+	# proves to work better, it is worth bumping the pin in requirements.txt in the repo.
+	echo "==> Updating yt-dlp"
 	sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install --quiet --upgrade yt-dlp
 
-	echo "==> Restartuji službu"
+	echo "==> Restarting the service"
 	systemctl restart "$SERVICE"
 
-	# Chvíli počkat, ať se stihne projevit případný pád při startu
-	# (chybějící proměnná v .env shodí aplikaci hned při importu).
+	# Wait a moment so that a crash during startup has time to show
+	# (a missing variable in .env brings the app down right at import time).
 	sleep 5
 
 	if systemctl is-active --quiet "$SERVICE"; then
-		echo "==> Hotovo, služba běží."
+		echo "==> Done, the service is running."
 		"$APP_DIR/venv/bin/python" -c "import yt_dlp; print('yt-dlp', yt_dlp.version.__version__)"
 	else
-		echo "==> CHYBA: služba neběží. Poslední logy:" >&2
+		echo "==> ERROR: the service is not running. Latest logs:" >&2
 		journalctl -u "$SERVICE" -n 30 --no-pager >&2
 		exit 1
 	fi

@@ -1,4 +1,4 @@
-"""Testy rozpoznání zdroje z URL a limitu délky videa."""
+"""Tests for detecting the source from a URL and the video length limit."""
 import extractor
 from extractor import duration_error, extract_source
 
@@ -46,7 +46,7 @@ class TestDurationError:
         assert "120 min" in err
 
     def test_unknown_duration_passes(self):
-        # live stream / chybějící metadata nesmí video zablokovat
+        # a live stream / missing metadata must not block the video
         assert duration_error({}) is None
         assert duration_error({"duration": None}) is None
 
