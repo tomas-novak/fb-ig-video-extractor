@@ -133,6 +133,5 @@ a `gen_railway_env.py` byly smazané. Postup nasazení je teď zobecněný v
 
 - Google My Maps integrace (zobrazení pinů z Sheets)
 - Filtrování mapy podle kategorie
-- Migrace databáze na Supabase + mapa na Vercelu — hotový návrh je
-  dohledatelný v git historii (`docs/migration/02-phase-b-supabase-vercel.md`,
-  smazáno při zobecnění dokumentace)
+- Migrace databáze na Supabase + mapa na Vercelu — hotový návrh existuje,
+  vlastník ho má u sebe mimo repo
