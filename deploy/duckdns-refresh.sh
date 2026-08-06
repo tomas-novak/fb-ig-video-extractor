@@ -15,7 +15,7 @@
 #   sudo crontab -e
 #     */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null 2>&1
 #
-# Podrobný postup: docs/migration/01-phase-a-vps.md
+# Podrobný postup: docs/deploy-vps.md
 
 set -euo pipefail
 

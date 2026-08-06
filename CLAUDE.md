@@ -23,7 +23,7 @@ zobrazený ve videu, což zpřesňuje určení místa.
 
 ## Stack
 
-- **Runtime**: Python 3.11+
+- **Runtime**: Python 3.10+ (ověřeno na 3.10.12 na produkčním VPS, žádná konstrukce v kódu nevyžaduje 3.11)
 - **Web framework**: FastAPI + uvicorn
 - **Telegram**: python-telegram-bot nebo přímé volání Bot API
 - **Video download**: yt-dlp (formát `hd/sd/best`)
