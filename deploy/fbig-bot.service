@@ -5,7 +5,7 @@
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now fbig-bot
 #
-# Podrobný postup: docs/migration/01-phase-a-vps.md
+# Podrobný postup: docs/deploy-vps.md
 
 [Unit]
 Description=FB/IG Video Extractor (Telegram bot)

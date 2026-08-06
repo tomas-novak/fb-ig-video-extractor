@@ -78,6 +78,8 @@ Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
   without it, AI estimates are used)
 - `ANTHROPIC_API_KEY` — duplicate-place check via the `/dedup` command
 - `MAP_TOKEN` — map protection (without it the map is public)
+- `MAP_VIEW_TOKEN` — separate read-only map token, safe to share (viewing
+  only — no deleting or marking as visited)
 - `WEBHOOK_SECRET` — Telegram webhook verification
 - `BOT_LANGUAGE` — language of bot replies, the map and AI summaries:
   `en` (default) or `cs`. The audio transcript always stays in the
@@ -96,9 +98,8 @@ tens of seconds up to a few minutes, so request-scoped serverless functions
 (Vercel and friends) won't work.
 
 **VPS (recommended):** a full step-by-step guide, including free HTTPS, is in
-[docs/migration/01-phase-a-vps.md](docs/migration/01-phase-a-vps.md) (written
-in Czech). In short: a Python venv plus the systemd unit from
-`deploy/fbig-bot.service`, with Caddy as the reverse proxy.
+[docs/deploy-vps.md](docs/deploy-vps.md). In short: a Python venv plus the
+systemd unit from `deploy/fbig-bot.service`, with Caddy as the reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash

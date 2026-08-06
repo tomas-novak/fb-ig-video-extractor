@@ -9,7 +9,7 @@
 #   sudo nano /etc/caddy/Caddyfile     # doplnit skutečnou doménu a e-mail
 #   sudo systemctl reload caddy
 #
-# Podrobný postup: docs/migration/01-phase-a-vps.md
+# Podrobný postup: docs/deploy-vps.md
 
 {
 	# E-mail pro Let's Encrypt (upozornění na vypršení certifikátu).

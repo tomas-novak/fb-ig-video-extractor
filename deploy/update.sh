@@ -10,7 +10,7 @@
 #   3. aktualizuje yt-dlp (viz poznámka níže)
 #   4. restartuje službu a zkontroluje, že naběhla
 #
-# Podrobný postup: docs/migration/01-phase-a-vps.md
+# Podrobný postup: docs/deploy-vps.md
 
 set -euo pipefail
 
