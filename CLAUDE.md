@@ -136,7 +136,10 @@ z lokálního `.env` pro rychlé vložení do Railway dashboardu.
 
 **Napříč všemi třemi platí:** smí běžet jen jedna instance najednou — poslední,
 která se u Telegramu zaregistruje jako webhook, dostává provoz. Při přepínání
-mezi nimi starou instanci vždy zastav (nebo jí vyprázdni `PUBLIC_URL`).
+mezi nimi starou instanci vždy skutečně zastav. Vyprázdnění `PUBLIC_URL` +
+restart k tomu stačí u VPS/Dockeru, ale ne u Railway — to si samo dohledá
+`RAILWAY_PUBLIC_DOMAIN` a webhook zaregistruje stejně; Railway instanci je
+potřeba pozastavit/odstranit přímo v dashboardu.
 
 ## Historie
 

@@ -124,8 +124,12 @@ takže tohle ber spíš jako rychlé vyzkoušení bota, ne trvalý hosting.
 
 **Vždy běž jen jedna instance.** Provoz dostává ta, která se u Telegramu
 zaregistrovala jako poslední — pokud přepínáš mezi VPS/Dockerem/Railway,
-zastav starou instanci (nebo jí vyprázdni `PUBLIC_URL` a restartuj), ať ti
-při náhodném restartu staré instance provoz tiše nezmizí zpátky.
+starou instanci vždy skutečně zastav (nestačí jí jen přestat posílat
+provoz), ať ti při jejím náhodném restartu provoz tiše nezmizí zpátky.
+Vyprázdnění `PUBLIC_URL` a restart funguje u VPS/Dockeru, **ne** u
+Railway — tam si bot automaticky dohledá vlastní `RAILWAY_PUBLIC_DOMAIN`
+a webhook zaregistruje stejně, takže Railway instanci je potřeba reálně
+pozastavit/odstranit v dashboardu.
 
 ### 6. Po nasazení
 1. Pošli botovi `/id` → vrátí tvoje Telegram ID

@@ -127,9 +127,13 @@ the bot quickly rather than permanent hosting.
 
 **Only run one instance at a time.** Whichever deployment last registers
 its webhook with Telegram is the one that receives messages — if you switch
-between VPS/Docker/Railway, stop the old instance (or clear its
-`PUBLIC_URL` and restart it) before or right after starting the new one, so
-a stray restart of the old one doesn't silently steal traffic back.
+between VPS/Docker/Railway, stop the old instance (don't just stop sending
+it traffic) before or right after starting the new one, so a stray restart
+of the old one doesn't silently steal traffic back. Clearing `PUBLIC_URL`
+and restarting works for VPS/Docker, but **not** for Railway — it falls
+back to its own `RAILWAY_PUBLIC_DOMAIN` and re-registers the webhook
+regardless, so a Railway instance you want out of the way needs to be
+actually paused/removed in the dashboard.
 
 ### 6. After deployment
 1. Send `/id` to the bot → it returns your Telegram ID
