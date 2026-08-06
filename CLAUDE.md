@@ -49,6 +49,9 @@ FB_IG_video_extractor/
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update and DuckDNS scripts
 ├── docs/deploy-vps.md # general guide for deploying to your own VPS (English)
+├── railway.toml       # Railway build/deploy config
+├── nixpacks.toml      # Railway: adds ffmpeg to the auto-detected Python
+├── gen_railway_env.py # helper script: .env -> railway-variables.local.txt
 └── .env.example       # environment variables template
 ```
 
@@ -119,9 +122,12 @@ The repository is public and English is its working language.
   - test fixtures and assertions, since `tests/conftest.py` pins `BOT_LANGUAGE=cs`
     to exercise the Czech path
 
-## Deployment (VPS)
+## Deployment
 
-A general step-by-step guide (for anyone, not just our server): `docs/deploy-vps.md`.
+Three supported options, documented in the README ("Deployment" section):
+
+**VPS (our production instance):** a general step-by-step guide (for anyone, not
+just our server) — `docs/deploy-vps.md`.
 
 1. The application lives in `/opt/fbig-bot`, Python venv, runs as a systemd
    service (`deploy/fbig-bot.service`) under the `fbigbot` user
@@ -136,15 +142,27 @@ The unit sets `MemoryMax`, `OOMScoreAdjust=1000` and a lower CPU/IO weight so
 that under memory pressure the system always kills the bot and not the other
 services on the server.
 
-The Docker variant (`Dockerfile`, `docker-compose.yml`) remains as an alternative.
+**Docker** (`Dockerfile`, `docker-compose.yml`) — VPS/NAS/Raspberry Pi without
+systemd, or when you already have your own reverse proxy.
 
-## Migration history
+**Railway** (`railway.toml`, `nixpacks.toml`) — the easiest one to try out, with
+no HTTPS/`PUBLIC_URL` to sort out (`main.py` picks up `RAILWAY_PUBLIC_DOMAIN`
+automatically). `gen_railway_env.py` generates `railway-variables.local.txt`
+from a local `.env` for quick pasting into the Railway dashboard.
 
-The project originally ran on Railway. Since 2026-08-06 it runs on its own VPS
-(see "Deployment (VPS)" above); the setup is proven, and `railway.toml`,
-`nixpacks.toml` and `gen_railway_env.py` were deleted. The deployment procedure
-is now generalized in `docs/deploy-vps.md` rather than tied to the specific
-history of a single move.
+**Applies to all three:** only one instance may run at a time — whichever one
+registers its webhook with Telegram last receives the traffic. When switching
+between them, always genuinely stop the old instance. Clearing `PUBLIC_URL` and
+restarting is enough for VPS/Docker, but not for Railway — it falls back to its
+own `RAILWAY_PUBLIC_DOMAIN` and re-registers the webhook regardless; a Railway
+instance has to be paused/removed directly in the dashboard.
+
+## History
+
+The project originally ran only on Railway. Since 2026-08-06 our production
+instance runs on its own VPS (see above) because the Railway trial expired;
+support for Railway as a deployment option for anyone else was kept/restored
+alongside VPS and Docker.
 
 ## Future extensions
 

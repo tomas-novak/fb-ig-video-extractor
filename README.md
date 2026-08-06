@@ -115,6 +115,26 @@ failed webhook deliveries. Once HTTPS is confirmed working, add
 `PUBLIC_URL=https://your-domain` to `.env` and run `docker compose up -d`
 again to restart with it picked up.
 
+**Railway (simplest, no server of your own):** connect this repo as a new
+Railway project — it auto-detects the build via `nixpacks.toml` (adds
+ffmpeg) and `railway.toml` (start command, healthcheck). Add your keys as
+Railway variables (running `python gen_railway_env.py` locally against your
+`.env` generates a paste-ready `railway-variables.local.txt` for the
+dashboard's Raw Editor). No HTTPS setup and no `PUBLIC_URL` needed — the
+bot picks up Railway's own `RAILWAY_PUBLIC_DOMAIN` automatically. Railway's
+free trial is time/usage-limited, so treat this as the option for trying
+the bot quickly rather than permanent hosting.
+
+**Only run one instance at a time.** Whichever deployment last registers
+its webhook with Telegram is the one that receives messages — if you switch
+between VPS/Docker/Railway, stop the old instance (don't just stop sending
+it traffic) before or right after starting the new one, so a stray restart
+of the old one doesn't silently steal traffic back. Clearing `PUBLIC_URL`
+and restarting works for VPS/Docker, but **not** for Railway — it falls
+back to its own `RAILWAY_PUBLIC_DOMAIN` and re-registers the webhook
+regardless, so a Railway instance you want out of the way needs to be
+actually paused/removed in the dashboard.
+
 ### 6. After deployment
 1. Send `/id` to the bot → it returns your Telegram ID
 2. Set `TELEGRAM_ALLOWED_USERS=<your_id>` — otherwise anyone can use the

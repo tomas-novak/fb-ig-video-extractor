@@ -7,3 +7,4 @@ __pycache__/
 .git/
 *.mp3
 *.mp4
+railway-variables.local.txt
