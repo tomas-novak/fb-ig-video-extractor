@@ -1,7 +1,10 @@
 # Self-hosted nasazení (VPS, NAS, Raspberry Pi):
-#   1. zkopíruj .env.example na .env a vyplň klíče
-#   2. nastav PUBLIC_URL na veřejnou adresu instance (kvůli Telegram webhooku)
-#   3. docker compose up -d
+#   1. zkopíruj .env.example na .env a vyplň klíče (PUBLIC_URL zatím nech prázdné)
+#   2. docker compose up -d
+#   3. teprve až před kontejnerem funguje HTTPS (vlastní reverse proxy),
+#      nastav PUBLIC_URL na veřejnou adresu instance a spusť
+#      `docker compose up -d` znovu (bot registruje webhook při každém
+#      startu - nastavit ho dřív jen nahromadí neúspěšná doručení)
 services:
   bot:
     build: .

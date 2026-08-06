@@ -103,9 +103,17 @@ systemd unit from `deploy/fbig-bot.service`, with Caddy as the reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
-cp .env.example .env   # fill in the keys + PUBLIC_URL
+cp .env.example .env   # fill in the keys, leave PUBLIC_URL blank for now
 docker compose up -d
 ```
+
+Leave `PUBLIC_URL` blank until you have working HTTPS in front of the
+container (your own reverse proxy — Caddy, nginx, Traefik, Nginx Proxy
+Manager...). The bot registers its Telegram webhook on every startup when
+`PUBLIC_URL` is set; setting it before HTTPS actually works just queues up
+failed webhook deliveries. Once HTTPS is confirmed working, add
+`PUBLIC_URL=https://your-domain` to `.env` and run `docker compose up -d`
+again to restart with it picked up.
 
 ### 6. After deployment
 1. Send `/id` to the bot → it returns your Telegram ID

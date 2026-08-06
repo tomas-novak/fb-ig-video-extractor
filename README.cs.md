@@ -100,9 +100,17 @@ reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
-cp .env.example .env   # vyplň klíče + PUBLIC_URL
+cp .env.example .env   # vyplň klíče, PUBLIC_URL zatím nech prázdné
 docker compose up -d
 ```
+
+`PUBLIC_URL` nech prázdné, dokud před kontejnerem nemáš funkční HTTPS
+(vlastní reverse proxy — Caddy, nginx, Traefik, Nginx Proxy Manager...).
+Bot při každém startu, kdy je `PUBLIC_URL` nastavené, zaregistruje Telegram
+webhook — pokud ho nastavíš dřív, než HTTPS opravdu funguje, jen se nahromadí
+neúspěšná doručení. Jakmile máš HTTPS ověřené, doplň do `.env`
+`PUBLIC_URL=https://tvoje-domena` a spusť `docker compose up -d` znovu,
+ať se nastavení projeví.
 
 ### 6. Po nasazení
 1. Pošli botovi `/id` → vrátí tvoje Telegram ID
