@@ -47,7 +47,6 @@ FB_IG_video_extractor/
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update a DuckDNS skripty
 ├── docs/migration/    # dokumentace přesunu z Railway na VPS
-├── railway.toml       # deprecated (zbytek po Railway)
 └── .env.example       # vzor environment variables
 ```
 
@@ -125,10 +124,12 @@ Docker varianta (`Dockerfile`, `docker-compose.yml`) zůstává jako alternativa
 
 ## Historie migrace
 
-Projekt původně běžel na Railway. Kompletní dokumentace přesunu (včetně
-rollbacku a návrhu druhé fáze) je v `docs/migration/`. Soubory `railway.toml`,
-`nixpacks.toml` a `gen_railway_env.py` jsou **deprecated** — smažou se, až
-bude VPS provoz ověřený.
+Projekt původně běžel na Railway. Od 2026-08-06 běží na vlastním VPS (viz
+"Nasazení (VPS)" výše); provoz je ověřený, `railway.toml`, `nixpacks.toml`
+a `gen_railway_env.py` byly smazané. Kompletní dokumentace přesunu (včetně
+rollbacku a návrhu druhé fáze) zůstává v `docs/migration/` pro referenci —
+Railway trial mezitím vypršel, takže rollback návod na Railway už není
+reálně proveditelný (viz poznámka v `03-rollback.md`).
 
 ## Budoucí rozšíření
 

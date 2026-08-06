@@ -7,7 +7,7 @@ from i18n import t
 
 
 FFMPEG_LOCATIONS = [
-    # Railway (nixpacks)
+    # Linux (apt/nixpacks)
     "/usr/bin/ffmpeg",
     # Windows winget
     r"C:\Users\novak\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe",
