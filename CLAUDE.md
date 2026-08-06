@@ -47,6 +47,9 @@ FB_IG_video_extractor/
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update a DuckDNS skripty
 ├── docs/deploy-vps.md # obecný návod na nasazení na vlastní VPS (anglicky)
+├── railway.toml       # Railway build/deploy config
+├── nixpacks.toml      # Railway: přidání ffmpeg k automaticky rozpoznanému Pythonu
+├── gen_railway_env.py # pomocný skript: .env -> railway-variables.local.txt
 └── .env.example       # vzor environment variables
 ```
 
@@ -104,9 +107,12 @@ uvicorn main:app --reload --port 8000
 - Commit messages, názvy větví a texty PR piš **anglicky**.
 - Komentáře v kódu a dokumentace pro vývoj (tento soubor) zůstávají česky.
 
-## Nasazení (VPS)
+## Nasazení
 
-Obecný návod krok za krokem (pro kohokoliv, ne jen náš server): `docs/deploy-vps.md`.
+Tři podporované možnosti, zdokumentované v README (sekce "Deployment"):
+
+**VPS (naše produkční instance):** obecný návod krok za krokem —
+`docs/deploy-vps.md`.
 
 1. Aplikace v `/opt/fbig-bot`, Python venv, běží jako systemd služba
    (`deploy/fbig-bot.service`) pod uživatelem `fbigbot`
@@ -120,14 +126,27 @@ Obecný návod krok za krokem (pro kohokoliv, ne jen náš server): `docs/deploy
 Unit má `MemoryMax`, `OOMScoreAdjust=1000` a nižší CPU/IO váhu, aby při
 nedostatku paměti systém zabil vždy bota a ne ostatní služby na serveru.
 
-Docker varianta (`Dockerfile`, `docker-compose.yml`) zůstává jako alternativa.
+**Docker** (`Dockerfile`, `docker-compose.yml`) — VPS/NAS/Raspberry Pi bez
+systemd, nebo když už máš vlastní reverse proxy.
 
-## Historie migrace
+**Railway** (`railway.toml`, `nixpacks.toml`) — nejjednodušší na vyzkoušení,
+žádné HTTPS/`PUBLIC_URL` řešit netřeba (`main.py` bere `RAILWAY_PUBLIC_DOMAIN`
+automaticky). `gen_railway_env.py` vygeneruje `railway-variables.local.txt`
+z lokálního `.env` pro rychlé vložení do Railway dashboardu.
 
-Projekt původně běžel na Railway. Od 2026-08-06 běží na vlastním VPS (viz
-"Nasazení (VPS)" výše); provoz je ověřený, `railway.toml`, `nixpacks.toml`
-a `gen_railway_env.py` byly smazané. Postup nasazení je teď zobecněný v
-`docs/deploy-vps.md`, ne vázaný na konkrétní historii jednoho přesunu.
+**Napříč všemi třemi platí:** smí běžet jen jedna instance najednou — poslední,
+která se u Telegramu zaregistruje jako webhook, dostává provoz. Při přepínání
+mezi nimi starou instanci vždy skutečně zastav. Vyprázdnění `PUBLIC_URL` +
+restart k tomu stačí u VPS/Dockeru, ale ne u Railway — to si samo dohledá
+`RAILWAY_PUBLIC_DOMAIN` a webhook zaregistruje stejně; Railway instanci je
+potřeba pozastavit/odstranit přímo v dashboardu.
+
+## Historie
+
+Projekt původně běžel jen na Railway. Od 2026-08-06 běží naše produkční
+instance na vlastním VPS (viz výše) kvůli vypršelému Railway trialu;
+podpora Railway jako nasazovací možnosti pro kohokoliv dalšího zůstala
+zachovaná/obnovená vedle VPS a Dockeru.
 
 ## Budoucí rozšíření
 

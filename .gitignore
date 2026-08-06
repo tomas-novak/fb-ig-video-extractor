@@ -1,5 +1,6 @@
 .env
 *.json
+railway-variables.local.txt
 __pycache__/
 *.pyc
 .pytest_cache/
