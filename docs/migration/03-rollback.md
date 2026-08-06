@@ -7,6 +7,13 @@ Migrace je stavěná tak, aby šla kdykoliv vzít zpět. Existují dvě nezávis
 
 ## Úroveň 1 — vrátit provoz na Railway (řádově sekundy)
 
+> **Momentálně neplatí (od 2026-08-06):** Railway trial vypršel dřív, než se
+> migrace stihla dokončit, takže tenhle scénář teď není k dispozici — na
+> Railway není co startovat zpátky. Postup níže zůstává pro referenci, kdyby
+> se v budoucnu Railway znovu zprovoznilo (nový účet/tarif). Do té doby je
+> jediná reálná cesta zpět Úroveň 2 (vrácení kódu) kombinovaná s nasazením
+> na jiný hosting podle stejného runbooku.
+
 Tohle je ten důležitý scénář: bot na VPS zlobí a potřebuješ, aby zase fungoval.
 
 **Předpoklad:** služba na Railway nebyla smazaná (podle runbooku je po
