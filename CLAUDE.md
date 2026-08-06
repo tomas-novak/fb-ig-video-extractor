@@ -10,7 +10,7 @@ vytáhne obsah videa, přepíše zvuk, extrahuje místo a uloží metadata do Go
 ```
 Uživatel (telefon)
   → pošle URL do Telegram botu
-      → Python API (Railway)
+      → Python API (VPS)
           → yt-dlp stáhne VIDEO (ne audio – FB datacentru audio-only stream nenabízí)
           → Gemini Flash analyzuje video: přepis zvuku + text na obrazovce + popisek (jedno volání)
           → Google Sheets API uloží řádek
@@ -29,7 +29,7 @@ zobrazený ve videu, což zpřesňuje určení místa.
 - **Video download**: yt-dlp (formát `hd/sd/best`)
 - **AI (analýza videa)**: Google Gemini 2.5 Flash (multimodální video – zvuk + obraz)
 - **Databáze**: Google Sheets (google-auth + gspread)
-- **Hosting**: Railway (region EU-West)
+- **Hosting**: vlastní VPS (Ubuntu 22.04, systemd + Caddy)
 
 ## Klíčové soubory
 
@@ -45,7 +45,9 @@ FB_IG_video_extractor/
 ├── sheets.py          # Google Sheets zápis
 ├── models.py          # datové modely (VideoMetadata)
 ├── requirements.txt
-├── railway.toml       # Railway deploy config
+├── deploy/            # systemd unit, Caddyfile, update a DuckDNS skripty
+├── docs/migration/    # dokumentace přesunu z Railway na VPS
+├── railway.toml       # deprecated (zbytek po Railway)
 └── .env.example       # vzor environment variables
 ```
 
@@ -59,6 +61,8 @@ GOOGLE_SERVICE_ACCOUNT=   # JSON service account (base64 nebo path)
 WEBHOOK_SECRET=           # volitelný secret pro ověření Telegram webhooků
 BOT_LANGUAGE=             # jazyk odpovědí bota, mapy a AI shrnutí: en (výchozí) / cs
 CATEGORIES=               # vlastní kategorie oddělené čárkou; poslední = záchytná
+PUBLIC_URL=               # veřejná adresa instance (registrace webhooku při startu)
+HOST=                     # adresa pro poslech; za reverse proxy 127.0.0.1 (výchozí 0.0.0.0)
 ```
 
 ## Google Sheets struktura (Sheet1)
@@ -101,15 +105,34 @@ uvicorn main:app --reload --port 8000
 - Commit messages, názvy větví a texty PR piš **anglicky**.
 - Komentáře v kódu a dokumentace pro vývoj (tento soubor) zůstávají česky.
 
-## Nasazení (Railway)
+## Nasazení (VPS)
 
-1. `git push` na GitHub repo
-2. Railway automaticky detekuje Python a nasadí
-3. Nastavit env variables v Railway dashboard
-4. Spustit `python main.py --set-webhook` pro registraci Telegram webhooku
+Runbook krok za krokem: `docs/migration/01-phase-a-vps.md`.
+
+1. Aplikace v `/opt/fbig-bot`, Python venv, běží jako systemd služba
+   (`deploy/fbig-bot.service`) pod uživatelem `fbigbot`
+2. Caddy jako reverse proxy (`deploy/Caddyfile`) — HTTPS z Let's Encrypt
+   automaticky, doména přes DuckDNS
+3. `HOST=127.0.0.1` v `.env` — ven vede jen Caddy
+4. Webhook se registruje sám při startu podle `PUBLIC_URL`
+   (ruční varianta: `python main.py --set-webhook <url>`)
+5. Aktualizace: `deploy/update.sh` (git pull + závislosti + yt-dlp + restart)
+
+Unit má `MemoryMax`, `OOMScoreAdjust=1000` a nižší CPU/IO váhu, aby při
+nedostatku paměti systém zabil vždy bota a ne ostatní služby na serveru.
+
+Docker varianta (`Dockerfile`, `docker-compose.yml`) zůstává jako alternativa.
+
+## Historie migrace
+
+Projekt původně běžel na Railway. Kompletní dokumentace přesunu (včetně
+rollbacku a návrhu druhé fáze) je v `docs/migration/`. Soubory `railway.toml`,
+`nixpacks.toml` a `gen_railway_env.py` jsou **deprecated** — smažou se, až
+bude VPS provoz ověřený.
 
 ## Budoucí rozšíření
 
 - Google My Maps integrace (zobrazení pinů z Sheets)
 - Filtrování mapy podle kategorie
-- Migrace databáze na Supabase pro lepší dotazování
+- Migrace databáze na Supabase + mapa na Vercelu — návrh v
+  `docs/migration/02-phase-b-supabase-vercel.md`

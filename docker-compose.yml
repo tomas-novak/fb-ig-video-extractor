@@ -8,6 +8,10 @@ services:
     env_file: .env
     environment:
       - PORT=8000
+      # Přebíjí HOST z .env: v kontejneru se musí poslouchat na všech
+      # rozhraních, jinak by mapování portu níže nefungovalo. Hodnota
+      # HOST=127.0.0.1 (pro nasazení za reverse proxy) sem nepatří.
+      - HOST=0.0.0.0
     ports:
       - "8000:8000"
     restart: unless-stopped

@@ -1,0 +1,32 @@
+# Caddy konfigurace pro FB/IG Video Extractor
+#
+# Caddy si o certifikát od Let's Encrypt požádá sám a sám ho i obnovuje –
+# nic dalšího kolem TLS nastavovat netřeba. Podmínkou je, aby doména níže
+# mířila A záznamem na IP tohoto serveru a porty 80 a 443 byly zvenku dostupné.
+#
+# Instalace:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo nano /etc/caddy/Caddyfile     # doplnit skutečnou doménu a e-mail
+#   sudo systemctl reload caddy
+#
+# Podrobný postup: docs/migration/01-phase-a-vps.md
+
+{
+	# E-mail pro Let's Encrypt (upozornění na vypršení certifikátu).
+	email tvuj@email.cz
+}
+
+# ZDE doplň svou doménu, např. mujbot.duckdns.org
+tvuj-nazev.duckdns.org {
+	# Bot poslouchá jen na localhostu (HOST=127.0.0.1 v .env),
+	# takže jediná cesta zvenku vede přes Caddy.
+	reverse_proxy 127.0.0.1:8000
+
+	encode gzip
+
+	log {
+		output file /var/log/caddy/fbig-bot.log
+		# Telegram webhook chodí často – stačí chyby.
+		level ERROR
+	}
+}

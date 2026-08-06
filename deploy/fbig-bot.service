@@ -1,0 +1,62 @@
+# systemd unit pro FB/IG Video Extractor
+#
+# Instalace:
+#   sudo cp deploy/fbig-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fbig-bot
+#
+# Podrobný postup: docs/migration/01-phase-a-vps.md
+
+[Unit]
+Description=FB/IG Video Extractor (Telegram bot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fbigbot
+Group=fbigbot
+WorkingDirectory=/opt/fbig-bot
+# Proměnné se načítají z /opt/fbig-bot/.env přímo v aplikaci (load_dotenv v main.py).
+# Záměrně nepoužíváme EnvironmentFile= – systemd si neporadí s jednořádkovým JSON
+# v GOOGLE_SERVICE_ACCOUNT_JSON a služba by odmítla nastartovat.
+ExecStart=/opt/fbig-bot/venv/bin/python main.py
+
+Restart=always
+RestartSec=5
+
+# --- Vrstva 1: limity paměti (cgroup) ---
+# Bot narazí na vlastní strop dřív, než dojde RAM celého serveru. Případný kill
+# se pak odehraje uvnitř této cgroup a globální OOM killer se vůbec nespustí,
+# takže ostatní procesy na serveru zůstanou nedotčené.
+MemoryHigh=500M
+MemoryMax=800M
+# Bez tohoto limitu by bot mohl zaplnit celý swap a rozthrashovat disk.
+MemorySwapMax=512M
+
+# --- Vrstva 2: pojistka pro globální OOM ---
+# Kdyby paměť došla vinou jiného procesu, kernel má zabít jako první tohohle
+# bota. Rozsah je -1000 až 1000, 1000 = "vyber si mě". Hodnotu dědí i potomci,
+# takže platí i pro yt-dlp a ffmpeg spuštěné během stahování.
+OOMScoreAdjust=1000
+OOMPolicy=continue
+
+# --- Vrstva 3: priorita CPU a I/O ---
+# Stahování videa a ffmpeg nesmí zpomalit ostatní služby (výchozí váha je 100).
+Nice=10
+CPUWeight=50
+IOWeight=50
+
+# --- Bezpečnost / úklid ---
+# Privátní /tmp: stažená videa jsou izolovaná a po restartu se automaticky uklidí.
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fbig-bot
+
+[Install]
+WantedBy=multi-user.target

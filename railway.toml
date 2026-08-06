@@ -1,3 +1,7 @@
+# DEPRECATED: projekt se stěhuje z Railway na vlastní VPS.
+# Viz docs/migration/. Soubor zůstává jen pro případ návratu zpět
+# (docs/migration/03-rollback.md) a po ověřeném provozu na VPS se smaže.
+
 [build]
 builder = "nixpacks"
 
