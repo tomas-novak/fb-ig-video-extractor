@@ -78,6 +78,8 @@ Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
   without it, AI estimates are used)
 - `ANTHROPIC_API_KEY` — duplicate-place check via the `/dedup` command
 - `MAP_TOKEN` — map protection (without it the map is public)
+- `MAP_VIEW_TOKEN` — separate read-only map token, safe to share (viewing
+  only — no deleting or marking as visited)
 - `WEBHOOK_SECRET` — Telegram webhook verification
 - `BOT_LANGUAGE` — language of bot replies, the map and AI summaries:
   `en` (default) or `cs`. The audio transcript always stays in the

@@ -13,7 +13,8 @@
 #   echo "DUCKDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" | sudo tee -a /etc/duckdns.conf
 #   sudo chmod 600 /etc/duckdns.conf
 #   sudo crontab -e
-#     */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null 2>&1
+#     */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null
+#   (jen stdout – stderr nechat, ať cron ohlásí selhání)
 #
 # Podrobný postup: docs/deploy-vps.md
 

@@ -112,8 +112,8 @@ sudo -u fbigbot /opt/fbig-bot/venv/bin/pip install -r /opt/fbig-bot/requirements
 
 ```bash
 sudo -u fbigbot cp /opt/fbig-bot/.env.example /opt/fbig-bot/.env
-sudo -u fbigbot nano /opt/fbig-bot/.env
 chmod 600 /opt/fbig-bot/.env
+sudo -u fbigbot nano /opt/fbig-bot/.env
 ```
 
 See the main [README](../README.md#setup--your-own-instance-15-minutes-all-free)
@@ -124,11 +124,15 @@ service account, etc.). A few values specific to this deployment method:
 |---|---|---|
 | **`HOST`** | `127.0.0.1` | yes |
 | `PORT` | `8000` (or leave blank) | no |
-| **`PUBLIC_URL`** | `https://mybot.duckdns.org` (your domain from step 1) | yes |
+| **`PUBLIC_URL`** | leave **blank** for now — filled in during step 8, once HTTPS works | yes (later) |
 | `COOKIES_FILE` | see note below | for Instagram/YouTube |
 
-`HOST=127.0.0.1` matters: the server has no firewall configured, so without
+`HOST=127.0.0.1` matters: if your server has no firewall configured, without
 it port 8000 would be reachable directly from the internet, bypassing Caddy.
+
+Leaving `PUBLIC_URL` blank for now matters too: the bot registers its
+Telegram webhook on every startup when it's set, and HTTPS doesn't exist
+until step 6 — registering early would just queue up failed deliveries.
 
 **Cookies:** Instagram and YouTube usually block anonymous downloads from
 datacenter IPs. Export cookies from a logged-in account (an extension like
@@ -220,9 +224,11 @@ If `/health` responds over HTTPS, the important part is done.
 
 **If the certificate request times out:** double-check `dig +short
 mybot.duckdns.org` actually returns your server's IP (see step 1) — a
-mismatched DNS record is the most common cause, and Caddy's error message
-("Timeout during connect... likely firewall problem") can be misleading;
-it's almost always DNS, not a firewall.
+mismatched DNS record is a very common cause, and Caddy's error message
+("Timeout during connect... likely firewall problem") doesn't mention it.
+The other common cause really is a firewall: many providers ship a cloud
+firewall or a ufw-enabled image, so make sure ports 80 and 443 are open
+from the outside.
 
 ---
 
@@ -243,18 +249,22 @@ chmod 600 /etc/duckdns.conf
 
 crontab -e
 # add this line:
-# */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null 2>&1
+# */5 * * * * /opt/fbig-bot/deploy/duckdns-refresh.sh >/dev/null
+# (stdout only — keep stderr unredirected so cron can report failures)
 ```
 
 ---
 
 ## 8. Register the webhook
 
-With `PUBLIC_URL` already set in step 4, the bot registers its webhook with
-Telegram automatically on startup — nothing extra to do here beyond
-restarting once everything above is in place:
+Now that HTTPS works, fill in `PUBLIC_URL` (left blank in step 4) and
+restart — the bot registers its webhook with Telegram automatically on
+startup:
 
 ```bash
+sudo -u fbigbot nano /opt/fbig-bot/.env
+# PUBLIC_URL=https://mybot.duckdns.org
+
 systemctl restart fbig-bot
 journalctl -u fbig-bot -n 20 --no-pager
 ```
@@ -370,5 +380,5 @@ ss -tlnp | grep -v '127.0.0.1\|::1'
 ```
 
 Anything that shouldn't be public belongs either behind `127.0.0.1` or
-behind a firewall at your hosting provider — the server itself has none
-configured by default.
+behind a firewall (your hosting provider's, or `ufw` on the server itself —
+don't assume one is configured unless you set it up).
