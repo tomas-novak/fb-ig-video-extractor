@@ -46,7 +46,7 @@ FB_IG_video_extractor/
 ├── models.py          # datové modely (VideoMetadata)
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update a DuckDNS skripty
-├── docs/migration/    # dokumentace přesunu z Railway na VPS
+├── docs/deploy-vps.md # obecný návod na nasazení na vlastní VPS (anglicky)
 └── .env.example       # vzor environment variables
 ```
 
@@ -106,7 +106,7 @@ uvicorn main:app --reload --port 8000
 
 ## Nasazení (VPS)
 
-Runbook krok za krokem: `docs/migration/01-phase-a-vps.md`.
+Obecný návod krok za krokem (pro kohokoliv, ne jen náš server): `docs/deploy-vps.md`.
 
 1. Aplikace v `/opt/fbig-bot`, Python venv, běží jako systemd služba
    (`deploy/fbig-bot.service`) pod uživatelem `fbigbot`
@@ -126,14 +126,12 @@ Docker varianta (`Dockerfile`, `docker-compose.yml`) zůstává jako alternativa
 
 Projekt původně běžel na Railway. Od 2026-08-06 běží na vlastním VPS (viz
 "Nasazení (VPS)" výše); provoz je ověřený, `railway.toml`, `nixpacks.toml`
-a `gen_railway_env.py` byly smazané. Kompletní dokumentace přesunu (včetně
-rollbacku a návrhu druhé fáze) zůstává v `docs/migration/` pro referenci —
-Railway trial mezitím vypršel, takže rollback návod na Railway už není
-reálně proveditelný (viz poznámka v `03-rollback.md`).
+a `gen_railway_env.py` byly smazané. Postup nasazení je teď zobecněný v
+`docs/deploy-vps.md`, ne vázaný na konkrétní historii jednoho přesunu.
 
 ## Budoucí rozšíření
 
 - Google My Maps integrace (zobrazení pinů z Sheets)
 - Filtrování mapy podle kategorie
-- Migrace databáze na Supabase + mapa na Vercelu — návrh v
-  `docs/migration/02-phase-b-supabase-vercel.md`
+- Migrace databáze na Supabase + mapa na Vercelu — hotový návrh existuje,
+  vlastník ho má u sebe mimo repo

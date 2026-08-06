@@ -96,9 +96,8 @@ tens of seconds up to a few minutes, so request-scoped serverless functions
 (Vercel and friends) won't work.
 
 **VPS (recommended):** a full step-by-step guide, including free HTTPS, is in
-[docs/migration/01-phase-a-vps.md](docs/migration/01-phase-a-vps.md) (written
-in Czech). In short: a Python venv plus the systemd unit from
-`deploy/fbig-bot.service`, with Caddy as the reverse proxy.
+[docs/deploy-vps.md](docs/deploy-vps.md). In short: a Python venv plus the
+systemd unit from `deploy/fbig-bot.service`, with Caddy as the reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash

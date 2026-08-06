@@ -92,9 +92,9 @@ Bot potřebuje běžet jako trvale spuštěná služba — zpracování videa tr
 desítky sekund až minuty, takže serverless funkce (Vercel apod.) nestačí.
 
 **VPS (doporučeno):** podrobný návod krok za krokem včetně HTTPS zdarma
-najdeš v [docs/migration/01-phase-a-vps.md](docs/migration/01-phase-a-vps.md).
-Ve zkratce: Python venv + systemd služba z `deploy/fbig-bot.service`
-+ Caddy jako reverse proxy.
+najdeš v [docs/deploy-vps.md](docs/deploy-vps.md) (anglicky). Ve zkratce:
+Python venv + systemd služba z `deploy/fbig-bot.service` + Caddy jako
+reverse proxy.
 
 **Docker (VPS, NAS, Raspberry Pi):**
 ```bash
