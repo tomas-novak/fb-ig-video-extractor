@@ -1,0 +1,12 @@
+# Konfigurace pro nasazení na Railway (railway.com). Detekuje se automaticky
+# při připojení tohoto repa jako Railway projektu. Alternativy: vlastní VPS
+# (docs/deploy-vps.md) nebo Docker (docker-compose.yml) - viz README.
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python main.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"

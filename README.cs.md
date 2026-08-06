@@ -112,6 +112,21 @@ neúspěšná doručení. Jakmile máš HTTPS ověřené, doplň do `.env`
 `PUBLIC_URL=https://tvoje-domena` a spusť `docker compose up -d` znovu,
 ať se nastavení projeví.
 
+**Railway (nejjednodušší, bez vlastního serveru):** připoj tenhle repo jako
+nový Railway projekt — build se rozpozná automaticky přes `nixpacks.toml`
+(přidá ffmpeg) a `railway.toml` (start command, healthcheck). Klíče vlož
+jako Railway proměnné (spuštěním `python gen_railway_env.py` lokálně nad
+tvým `.env` se vygeneruje `railway-variables.local.txt`, který jde rovnou
+vložit do Raw Editoru v dashboardu). Žádné HTTPS ani `PUBLIC_URL` řešit
+nemusíš — bot si automaticky poradí s Railway proměnnou
+`RAILWAY_PUBLIC_DOMAIN`. Free trial na Railway je časově/objemově omezený,
+takže tohle ber spíš jako rychlé vyzkoušení bota, ne trvalý hosting.
+
+**Vždy běž jen jedna instance.** Provoz dostává ta, která se u Telegramu
+zaregistrovala jako poslední — pokud přepínáš mezi VPS/Dockerem/Railway,
+zastav starou instanci (nebo jí vyprázdni `PUBLIC_URL` a restartuj), ať ti
+při náhodném restartu staré instance provoz tiše nezmizí zpátky.
+
 ### 6. Po nasazení
 1. Pošli botovi `/id` → vrátí tvoje Telegram ID
 2. Nastav `TELEGRAM_ALLOWED_USERS=<tvoje_id>` — jinak může bota používat
