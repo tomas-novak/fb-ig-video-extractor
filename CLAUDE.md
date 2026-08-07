@@ -61,16 +61,13 @@ FB_IG_video_extractor/
 
 ## Environment variables
 
-Full reference with descriptions: `.env.example` — kept as the single source
-of truth rather than duplicated here, so this file cannot drift out of sync
-with it the way an earlier version of this table did (it listed a
-`GOOGLE_SERVICE_ACCOUNT` variable that has never existed in the code; the
-real names are `GOOGLE_SERVICE_ACCOUNT_FILE` for local dev and
-`GOOGLE_SERVICE_ACCOUNT_JSON` for servers - see `sheets.py`).
+Full reference with descriptions: `.env.example` (kept as the single source
+of truth rather than duplicated here).
 
 The three required for any deployment: `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`,
-`GOOGLE_SHEETS_ID` (+ one of the two service-account variables above).
-`PUBLIC_URL`/`HOST` matter specifically for deployment - see below.
+`GOOGLE_SHEETS_ID` (+ `GOOGLE_SERVICE_ACCOUNT_FILE` for local dev or
+`GOOGLE_SERVICE_ACCOUNT_JSON` for servers — see `sheets.py`). `PUBLIC_URL`/
+`HOST` matter specifically for deployment - see below.
 
 ## Google Sheets structure (Sheet1)
 
