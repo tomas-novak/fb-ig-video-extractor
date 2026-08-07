@@ -75,6 +75,7 @@
     <div class="filters">
       <span class="chip visited-toggle" id="visited-toggle">✓ visited only</span>
     </div>
+    <div id="visited-hint" style="font-size:11px;color:#888;margin-top:4px;"></div>
     <div class="group-label">Categories</div>
     <div class="filters" id="cat-filters"></div>
     <div class="group-label group-head">
@@ -149,6 +150,7 @@ function setOpen(open){
   toggleBtn.textContent = open ? "✕ Close" : "☰ Filters";
 }
 setOpen(true);
+toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.classList.contains("open")); });
 
 const map = L.map("map").setView([49.8, 15.5], 7);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -169,14 +171,18 @@ function placeVisible(item){
 }
 
 function applyFilters(){
-  let shown = 0, total = 0;
+  let shown = 0, total = 0, hiddenVisited = 0;
   Object.values(items).forEach(item => {
     total++;
     const vis = placeVisible(item);
     if(vis){ if(!map.hasLayer(item.marker)) item.marker.addTo(map); shown++; }
     else   { if(map.hasLayer(item.marker)) map.removeLayer(item.marker); }
+    if(item.visited && !visitedMode) hiddenVisited++;
   });
   document.getElementById("count").textContent = "(" + shown + " / " + total + " places)";
+  document.getElementById("visited-hint").textContent = hiddenVisited > 0
+    ? "👆 " + hiddenVisited + " more place is marked visited (grey pin) — tap \"visited only\" above to see it"
+    : "";
 }
 
 function buildPopup(key){
