@@ -62,6 +62,10 @@
   }
   #banner a { color: #2196f3; text-decoration: none; font-weight: 600; }
   #banner a:hover { text-decoration: underline; }
+  /* #banner spans full width on narrow screens (left:10px/right:10px with no
+     room left for max-width to cap it), which would otherwise sit on top of
+     Leaflet's required OpenStreetMap attribution in the bottom-right corner. */
+  .leaflet-control-attribution { margin-bottom: 80px !important; }
 </style>
 </head>
 <body>
@@ -99,7 +103,11 @@
 // Same map logic as the real bot's /map (see ../map_page.py), minus the parts
 // that need a live backend (no /data fetch, no delete, "visited" is local-only).
 
-const CATEGORIES = ["swimming", "hiking", "food", "culture", "hotel"];
+// Same order as i18n.py's default English CATEGORIES, so colors match the
+// real app exactly (colors are assigned by index in this list) even though
+// the demo only actually uses a subset of them.
+const CATEGORIES = ["swimming", "hiking", "food", "culture", "nature",
+                     "sport", "fun", "hotel", "other"];
 const PALETTE = ["#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688",
                  "#f44336", "#e91e63", "#795548", "#607d8b"];
 const GREY = "#607d8b";
