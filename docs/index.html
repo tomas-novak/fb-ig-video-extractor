@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>FB/IG Video Extractor — Live Demo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+  #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+  #panel {
+    position: absolute; z-index: 1000; top: 10px; left: 10px; right: 10px;
+    background: rgba(255,255,255,0.96); border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 560px;
+    overflow: hidden;
+  }
+  #panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 10px 12px; cursor: pointer;
+  }
+  #panel-head .title { font-size: 15px; font-weight: 600; }
+  #panel-head .count { font-size: 12px; font-weight: normal; color: #666; }
+  #toggle {
+    border: none; background: #f0f0f0; border-radius: 8px; padding: 6px 12px;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  #panel-body { display: none; padding: 0 12px 12px; max-height: 60vh; overflow-y: auto; }
+  #panel-body.open { display: block; }
+  .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin: 8px 0 4px; }
+  .group-head { display: flex; align-items: center; justify-content: space-between; }
+  .mini { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 2px 8px;
+          font-size: 11px; cursor: pointer; margin-left: 4px; color: #333; }
+  .mini:active { background: #eee; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    border: 2px solid #ccc; border-radius: 999px; padding: 4px 10px; font-size: 13px;
+    background: #fff; transition: all .15s;
+  }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chip.off { opacity: .35; }
+  .chip.tag.on { border-color: #333; background: #333; color: #fff; }
+  .chip.visited-toggle.on { border-color: #4caf50; background: #4caf50; color: #fff; }
+  .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .popup-cat { display: inline-block; color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-bottom: 6px; }
+  .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
+  .popup-summary { font-size: 13px; line-height: 1.4; margin-bottom: 8px; }
+  .popup-link { font-size: 13px; }
+  .visit-btn {
+    display: block; width: 100%; margin-top: 8px; padding: 6px 10px;
+    border: 1px solid #4caf50; border-radius: 8px; background: #fff; color: #2e7d32;
+    font-size: 13px; cursor: pointer;
+  }
+  .visit-btn.undo { border-color: #999; color: #555; }
+  #banner {
+    position: absolute; z-index: 1000; bottom: 10px; left: 10px; right: 10px;
+    max-width: 560px; background: rgba(255,255,255,0.96); border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); padding: 10px 14px; font-size: 13px;
+    line-height: 1.4;
+  }
+  #banner a { color: #2196f3; text-decoration: none; font-weight: 600; }
+  #banner a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div id="panel-head">
+    <span class="title">🗺️ Trips <span class="count" id="count"></span></span>
+    <button id="toggle">☰ Filters</button>
+  </div>
+  <div id="panel-body">
+    <div class="group-label">View</div>
+    <div class="filters">
+      <span class="chip visited-toggle" id="visited-toggle">✓ visited only</span>
+    </div>
+    <div class="group-label">Categories</div>
+    <div class="filters" id="cat-filters"></div>
+    <div class="group-label group-head">
+      <span>Tags</span>
+      <span>
+        <button class="mini" id="tags-all">all</button>
+        <button class="mini" id="tags-none">none</button>
+      </span>
+    </div>
+    <div class="filters" id="tag-filters"></div>
+  </div>
+</div>
+<div id="map"></div>
+<div id="banner">
+  📍 Sample data — this is a static demo, not connected to any bot.
+  <a href="https://github.com/tomas-novak/fb-ig-video-extractor" target="_blank" rel="noopener">Get your own on GitHub →</a>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Same map logic as the real bot's /map (see ../map_page.py), minus the parts
+// that need a live backend (no /data fetch, no delete, "visited" is local-only).
+
+const CATEGORIES = ["swimming", "hiking", "food", "culture", "hotel"];
+const PALETTE = ["#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688",
+                 "#f44336", "#e91e63", "#795548", "#607d8b"];
+const GREY = "#607d8b";
+const COLORS = {};
+CATEGORIES.forEach((cat, i) => { COLORS[cat] = PALETTE[i % PALETTE.length]; });
+function colorFor(cat){ return COLORS[cat] || GREY; }
+function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+// Five sample places (fixed, not persisted anywhere) - real coordinates so the
+// map looks and feels like the real thing.
+const PLACES = [
+  {
+    key: "prague-castle", location_name: "Prague Castle", lat: 50.0910, lng: 14.4016,
+    category: "culture", tags: ["landmark", "history"],
+    summary: "The largest ancient castle complex in the world, overlooking the Vltava river. Free to walk the courtyards; tickets needed for the interiors.",
+    maps_url: "https://www.google.com/maps/search/?api=1&query=50.0910,14.4016", visited: false
+  },
+  {
+    key: "krkonose", location_name: "Sněžka, Krkonoše", lat: 50.7361, lng: 15.7403,
+    category: "hiking", tags: ["mountains", "views", "kids"],
+    summary: "The highest peak in the Czech Republic. A cable car goes most of the way up if you'd rather not hike the whole trail.",
+    maps_url: "https://www.google.com/maps/search/?api=1&query=50.7361,15.7403", visited: false
+  },
+  {
+    key: "slany-pool", location_name: "Slaný Swimming Pool", lat: 50.2300, lng: 14.0900,
+    category: "swimming", tags: ["outdoor", "kids", "pool"],
+    summary: "A modern water park in Slaný with pools for kids and adults. Fun for the whole family.",
+    maps_url: "https://www.google.com/maps/search/?api=1&query=50.2300,14.0900", visited: true
+  },
+  {
+    key: "lokal", location_name: "Lokál Dlouhááá", lat: 50.0919, lng: 14.4269,
+    category: "food", tags: ["czech", "beer", "dinner"],
+    summary: "Classic Czech pub food and some of the freshest Pilsner Urquell in Prague. Expect a wait at peak hours.",
+    maps_url: "https://www.google.com/maps/search/?api=1&query=50.0919,14.4269", visited: false
+  },
+  {
+    key: "karlovy-vary", location_name: "Karlovy Vary Colonnade", lat: 50.2308, lng: 12.8722,
+    category: "hotel", tags: ["spa", "wellness"],
+    summary: "The spa town's mineral hot springs and grand 19th-century colonnades. Bring a lázeňský pohárek to sip the water like a local.",
+    maps_url: "https://www.google.com/maps/search/?api=1&query=50.2308,12.8722", visited: false
+  }
+];
+
+const body = document.getElementById("panel-body");
+const toggleBtn = document.getElementById("toggle");
+function setOpen(open){
+  body.classList.toggle("open", open);
+  toggleBtn.textContent = open ? "✕ Close" : "☰ Filters";
+}
+setOpen(true);
+
+const map = L.map("map").setView([49.8, 15.5], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: "© OpenStreetMap"
+}).addTo(map);
+map.on("click", () => setOpen(false));
+
+const items = {};
+const activeCat = {};
+const activeTag = {};
+let visitedMode = false;
+
+function placeVisible(item){
+  if(visitedMode !== item.visited) return false;
+  if(!activeCat[item.category]) return false;
+  if(item.tags.length === 0) return true;
+  return item.tags.some(t => activeTag[t]);
+}
+
+function applyFilters(){
+  let shown = 0, total = 0;
+  Object.values(items).forEach(item => {
+    total++;
+    const vis = placeVisible(item);
+    if(vis){ if(!map.hasLayer(item.marker)) item.marker.addTo(map); shown++; }
+    else   { if(map.hasLayer(item.marker)) map.removeLayer(item.marker); }
+  });
+  document.getElementById("count").textContent = "(" + shown + " / " + total + " places)";
+}
+
+function buildPopup(key){
+  const item = items[key];
+  const cat = item.category;
+  let html = '<div class="popup-title">'+esc(item.location_name)+'</div>';
+  html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
+  if(item.tags.length) html += '<div class="popup-tags">🏷️ '+esc(item.tags.join(", "))+'</div>';
+  if(item.summary) html += '<div class="popup-summary">'+esc(item.summary)+'</div>';
+  html += '<div class="popup-link">🧭 <a href="'+esc(item.maps_url)+'" target="_blank" rel="noopener">Open in Google Maps</a></div>';
+  if(item.visited){
+    html += '<button class="visit-btn undo" onclick="setVisited(\''+key+'\', false)">↩️ Mark as not visited</button>';
+  } else {
+    html += '<button class="visit-btn" onclick="setVisited(\''+key+'\', true)">✅ Mark as visited</button>';
+  }
+  return html;
+}
+
+// Demo-only: changes the marker in the browser, nothing is saved anywhere.
+window.setVisited = function(key, flag){
+  const item = items[key];
+  if(!item) return;
+  item.visited = flag;
+  item.marker.setStyle({ fillColor: flag ? "#9e9e9e" : colorFor(item.category) });
+  item.marker.setPopupContent(buildPopup(key));
+  item.marker.closePopup();
+  applyFilters();
+};
+
+function buildCatFilters(){
+  const box = document.getElementById("cat-filters");
+  box.innerHTML = "";
+  Object.keys(activeCat).forEach(cat => {
+    const chip = document.createElement("span");
+    chip.className = "chip" + (activeCat[cat] ? "" : " off");
+    chip.innerHTML = '<span class="dot" style="background:'+colorFor(cat)+'"></span>'+esc(cat);
+    chip.onclick = () => { activeCat[cat] = !activeCat[cat]; chip.classList.toggle("off"); applyFilters(); };
+    box.appendChild(chip);
+  });
+}
+
+function buildTagFilters(){
+  const box = document.getElementById("tag-filters");
+  box.innerHTML = "";
+  Object.keys(activeTag).sort().forEach(tag => {
+    const chip = document.createElement("span");
+    chip.className = "chip tag" + (activeTag[tag] ? " on" : " off");
+    chip.textContent = "#" + tag;
+    chip.onclick = () => {
+      activeTag[tag] = !activeTag[tag];
+      chip.classList.toggle("on", activeTag[tag]);
+      chip.classList.toggle("off", !activeTag[tag]);
+      applyFilters();
+    };
+    box.appendChild(chip);
+  });
+}
+
+const visitedChip = document.getElementById("visited-toggle");
+visitedChip.classList.add("off");
+visitedChip.onclick = () => {
+  visitedMode = !visitedMode;
+  visitedChip.classList.toggle("on", visitedMode);
+  visitedChip.classList.toggle("off", !visitedMode);
+  applyFilters();
+};
+
+const bounds = [];
+PLACES.forEach(p => {
+  activeCat[p.category] = true;
+  p.tags.forEach(t => activeTag[t] = true);
+  const m = L.circleMarker([p.lat, p.lng], {
+    radius: 9, color: "#fff", weight: 2,
+    fillColor: p.visited ? "#9e9e9e" : colorFor(p.category), fillOpacity: 0.9
+  });
+  items[p.key] = { marker: m, category: p.category, tags: p.tags, visited: p.visited, location_name: p.location_name, summary: p.summary, maps_url: p.maps_url };
+  m.bindPopup(buildPopup(p.key));
+  bounds.push([p.lat, p.lng]);
+});
+
+buildCatFilters();
+buildTagFilters();
+applyFilters();
+
+document.getElementById("tags-all").onclick = () => { Object.keys(activeTag).forEach(t => activeTag[t]=true); buildTagFilters(); applyFilters(); };
+document.getElementById("tags-none").onclick = () => { Object.keys(activeTag).forEach(t => activeTag[t]=false); buildTagFilters(); applyFilters(); };
+
+if(bounds.length) map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
+</script>
+</body>
+</html>

@@ -4,6 +4,8 @@
 
 🇬🇧 **English version: [README.md](README.md)**
 
+🗺️ **[Živé demo mapy](https://tomas-novak.github.io/fb-ig-video-extractor/)** (statické, ukázková data, bez Telegramu)
+
 Pošli URL krátkého videa (Facebook/Instagram Reels, TikTok, YouTube Shorts)
 **svému** Telegram botovi → AI automaticky vytáhne místo, přepíše zvuk a uloží
 vše do Google Sheets. Uložená místa pak vidíš na interaktivní mapě s filtry.
