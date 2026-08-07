@@ -48,8 +48,12 @@ seconds of scrolling — they need to see, not to read.
   weeks of use.
 - [ ] **A sample output in Google Sheets** — a screenshot of the sheet with a few
   rows (anonymized / sample data).
-- [ ] **A public demo map (optional)** — a `/map` instance filled with sample data,
+- [x] **A public demo map (optional)** — a `/map` instance filled with sample data,
   linked from the README. A visitor gets a feel for the product without installing.
+  *(done: a static `docs/index.html` with 5 sample places, deployed via GitHub
+  Pages at https://tomas-novak.github.io/fb-ig-video-extractor/ — not the real
+  `/map`, since that needs a live bot; category/tag filtering and the visited
+  toggle work the same, no backend required)*
 
 ---
 

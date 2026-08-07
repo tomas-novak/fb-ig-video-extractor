@@ -6,6 +6,9 @@ A Telegram bot that takes a Facebook Reels or Instagram Reels URL, automatically
 pulls the video content, transcribes the audio, extracts the place and saves the
 metadata to Google Sheets.
 
+Live demo of the map (static sample data, no bot required):
+https://tomas-novak.github.io/fb-ig-video-extractor/ (source: `docs/index.html`).
+
 ## Architecture
 
 ```
@@ -49,6 +52,7 @@ FB_IG_video_extractor/
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update and DuckDNS scripts
 ├── docs/deploy-vps.md # general guide for deploying to your own VPS (English)
+├── docs/index.html    # static public demo of the map (GitHub Pages), sample data only
 ├── railway.toml       # Railway build/deploy config
 ├── nixpacks.toml      # Railway: adds ffmpeg to the auto-detected Python
 ├── gen_railway_env.py # helper script: .env -> railway-variables.local.txt
@@ -57,17 +61,16 @@ FB_IG_video_extractor/
 
 ## Environment variables
 
-```
-TELEGRAM_BOT_TOKEN=       # token from @BotFather
-GEMINI_API_KEY=           # Google AI Studio
-GOOGLE_SHEETS_ID=         # Google Sheet ID
-GOOGLE_SERVICE_ACCOUNT=   # service account JSON (base64 or path)
-WEBHOOK_SECRET=           # optional secret for verifying Telegram webhooks
-BOT_LANGUAGE=             # language of bot replies, the map and AI summaries: en (default) / cs
-CATEGORIES=               # custom comma-separated categories; the last one is the fallback
-PUBLIC_URL=               # public address of the instance (webhook registration at startup)
-HOST=                     # listen address; behind a reverse proxy 127.0.0.1 (default 0.0.0.0)
-```
+Full reference with descriptions: `.env.example` — kept as the single source
+of truth rather than duplicated here, so this file cannot drift out of sync
+with it the way an earlier version of this table did (it listed a
+`GOOGLE_SERVICE_ACCOUNT` variable that has never existed in the code; the
+real names are `GOOGLE_SERVICE_ACCOUNT_FILE` for local dev and
+`GOOGLE_SERVICE_ACCOUNT_JSON` for servers - see `sheets.py`).
+
+The three required for any deployment: `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`,
+`GOOGLE_SHEETS_ID` (+ one of the two service-account variables above).
+`PUBLIC_URL`/`HOST` matter specifically for deployment - see below.
 
 ## Google Sheets structure (Sheet1)
 

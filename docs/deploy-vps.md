@@ -6,6 +6,8 @@ a $5/mo box, a spare machine at home with a public IP — anything).
 
 **Estimated time:** 30–45 minutes.
 
+Not sure yet whether this project is for you? [Try the live map demo](https://tomas-novak.github.io/fb-ig-video-extractor/) first (static sample data, no deployment needed).
+
 Commands below assume you're logged in as root (otherwise prefix with `sudo`).
 
 ## Why this shape

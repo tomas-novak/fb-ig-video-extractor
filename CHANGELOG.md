@@ -34,6 +34,17 @@ and will be rolled into a version at the first public release.
 - A "Known limitations" section in the README (cookies for Instagram, datacenter
   IP blocking, Gemini rate limits, video length, coordinate accuracy).
 - This CHANGELOG.
+- A general, from-scratch VPS deployment guide (`docs/deploy-vps.md`): systemd
+  service, Caddy reverse proxy with automatic HTTPS via Let's Encrypt, DuckDNS
+  for a free domain, and OOM protection so the bot never takes down other
+  services on a shared server.
+- Railway as a supported deployment option (`railway.toml`, `nixpacks.toml`) —
+  no HTTPS or `PUBLIC_URL` to configure, since the bot picks up Railway's own
+  `RAILWAY_PUBLIC_DOMAIN` automatically. `gen_railway_env.py` turns a local
+  `.env` into a paste-ready variables file for the Railway dashboard.
+- A public, static demo of the map (`docs/index.html`, deployed via GitHub
+  Pages) with sample places — category/tag filtering and the visited toggle
+  work the same as the real `/map`, with no bot or backend behind it.
 
 ### Existing features (state before the changelog was introduced)
 - Telegram bot: saving a place from a Facebook/Instagram video URL (yt-dlp +
