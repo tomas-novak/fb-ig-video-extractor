@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import secrets
 import sys
 import unicodedata
@@ -13,11 +14,11 @@ load_dotenv()
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
-from i18n import t, command_aliases, command_name, help_text, menu_commands
+from i18n import t, command_aliases, command_name, help_text, menu_commands, LANG
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
-from thumbnails import thumbnail_path, save_thumbnail
+from thumbnails import THUMB_DIR, save_thumbnail, delete_thumbnail
 from dedup import find_duplicates
 from map_page import render_map
 from landing_page import LANDING_HTML
@@ -344,7 +345,7 @@ async def process_video(chat_id: int, url: str) -> None:
                 group_note = t("group_note", name=match["location_name"])
 
         # 7) Save to Sheets
-        row = await asyncio.to_thread(append_row, metadata)
+        await asyncio.to_thread(append_row, metadata)
 
         # 7b) Cache a small preview image for the map popup (best-effort;
         # never raises - see thumbnails.py). Photos use the file we already
@@ -355,7 +356,7 @@ async def process_video(chat_id: int, url: str) -> None:
         source_path = media_path if metadata.media_type == "photo" else None
         photo_name = geo.get("photo_name", "") if geo else ""
         await asyncio.to_thread(
-            save_thumbnail, row, source_path=source_path,
+            save_thumbnail, metadata.url, source_path=source_path,
             thumb_url=thumb_url, photo_name=photo_name)
 
         # 8) Reply to the user
@@ -551,6 +552,48 @@ async def root():
     return LANDING_HTML
 
 
+_PWA_NAMES = {"cs": ("Výlety", "Výlety – mapa"), "en": ("Trips", "Trips – map")}
+
+
+@app.get("/manifest.json")
+async def manifest(request: Request):
+    # Static per domain, but the map itself needs a token in the URL - bake
+    # whatever token the installing page was loaded with into start_url, so
+    # the home-screen icon reopens straight into the user's own map instead
+    # of an unauthenticated /map that 403s on its data.
+    token = request.query_params.get("token", "")
+    start_url = f"/map?token={token}" if token else "/map"
+    short_name, name = _PWA_NAMES.get(LANG, _PWA_NAMES["en"])
+    return JSONResponse({
+        "name": name,
+        "short_name": short_name,
+        "start_url": start_url,
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#2196f3",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+    })
+
+
+@app.get("/icon-{size}.png")
+async def icon(size: int):
+    if size not in (192, 512):
+        raise HTTPException(status_code=404, detail="no such icon size")
+    return FileResponse(f"static/icon-{size}.png", media_type="image/png")
+
+
+@app.get("/apple-touch-icon.png")
+async def apple_touch_icon():
+    # Deliberately a separate, full-bleed (no rounded corners) image from
+    # icon-192.png/icon-512.png - iOS applies its own corner mask and shadow
+    # to this one, so a pre-rounded source here gets double-rounded.
+    return FileResponse("static/apple-touch-icon.png", media_type="image/png")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -562,10 +605,14 @@ async def debug(request: Request):
     return ffmpeg_diagnostics()
 
 
-@app.get("/thumb/{row}.jpg")
-async def thumb(row: int, request: Request):
+@app.get("/thumb/{key}.jpg")
+async def thumb(key: str, request: Request):
     check_map_token(request, write=False)
-    path = thumbnail_path(row)
+    # key is thumbnails.thumb_key(place_url), an md5 hex digest - reject
+    # anything else up front rather than touching the filesystem with it.
+    if not re.fullmatch(r"[0-9a-f]{32}", key):
+        raise HTTPException(status_code=404, detail="no thumbnail")
+    path = os.path.join(THUMB_DIR, f"{key}.jpg")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="no thumbnail")
     return FileResponse(path, media_type="image/jpeg")
@@ -693,17 +740,24 @@ async def delete_place(request: Request):
     try:
         data = await request.json()
         rows = [int(r) for r in data.get("rows", [])]
+        urls = data.get("urls", [])
         if not rows:
             return JSONResponse({"error": "no rows"}, status_code=400)
         await asyncio.to_thread(delete_place_rows, rows)
+        for url in urls:
+            if url:
+                await asyncio.to_thread(delete_thumbnail, url)
         return {"ok": True}
     except Exception as e:
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @app.get("/map", response_class=HTMLResponse)
-async def map_view():
-    return HTMLResponse(render_map())
+async def map_view(request: Request):
+    # Not check_map_token()-gated on purpose - the page shell always loads,
+    # only /data etc. require a valid token. The token (if any) is only used
+    # here to bake a working PWA manifest link into the response.
+    return HTMLResponse(render_map(token=request.query_params.get("token", "")))
 
 
 # Webhook registration (called automatically at startup, manually via --set-webhook)
