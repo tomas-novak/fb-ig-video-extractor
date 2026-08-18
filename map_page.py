@@ -31,6 +31,7 @@ MAP_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
 <title></title>
+<link rel="icon" href="/icon-192.png" type="image/png">
 <!-- token baked in server-side by render_map() - see its docstring for why -->
 <link rel="manifest" href="__MAP_MANIFEST_HREF__">
 <meta name="theme-color" content="#2196f3">

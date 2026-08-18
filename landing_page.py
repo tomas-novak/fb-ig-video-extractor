@@ -13,6 +13,7 @@ LANDING_HTML = r"""<!DOCTYPE html>
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
 <title>nothing to see here</title>
+<link rel="icon" href="/icon-192.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:wght@700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
