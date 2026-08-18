@@ -17,4 +17,11 @@ services:
       - HOST=0.0.0.0
     ports:
       - "8000:8000"
+    volumes:
+      # Cached map-popup thumbnails - must survive rebuilds/recreates, so it
+      # cannot live in the container's own (ephemeral) filesystem.
+      - thumbnails:/app/data/thumbnails
     restart: unless-stopped
+
+volumes:
+  thumbnails:

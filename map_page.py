@@ -61,6 +61,7 @@ MAP_HTML = r"""<!DOCTYPE html>
   .chip.off { opacity: .35; }
   .chip.tag.on { border-color: #333; background: #333; color: #fff; }
   .chip.visited-toggle.on { border-color: #4caf50; background: #4caf50; color: #fff; }
+  .popup-thumb { width: 100%; max-height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: block; }
   .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .popup-cat { display: inline-block; color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-bottom: 6px; }
   .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
@@ -127,6 +128,7 @@ const TEXTS = {
     all: "vše", none: "nic", visitedOnly: "✓ jen navštívené",
     count: (shown, total) => "(" + shown + " / " + total + " míst)",
     openVideo: "Otevřít video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openPhoto: "Otevřít fotku", photoN: (n, date) => "Fotka " + n + " (" + date + ")",
     openMaps: "Otevřít v Google Maps",
     approx: "⚠️ přibližná poloha (odhad AI)",
     visit: "✅ Už jsme navštívili", unvisit: "↩️ Vrátit mezi nenavštívené",
@@ -143,6 +145,7 @@ const TEXTS = {
     all: "all", none: "none", visitedOnly: "✓ visited only",
     count: (shown, total) => "(" + shown + " / " + total + " places)",
     openVideo: "Open video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openPhoto: "Open photo", photoN: (n, date) => "Photo " + n + " (" + date + ")",
     openMaps: "Open in Google Maps",
     approx: "⚠️ approximate location (AI estimate)",
     visit: "✅ Mark as visited", unvisit: "↩️ Mark as not visited",
@@ -232,14 +235,23 @@ function buildPopup(key){
   const group = item.group;
   const rep = group[0];
   const cat = item.category;
-  let html = '<div class="popup-title">'+esc(rep.location_name)+'</div>';
+  // Missing thumbnails (older rows, or the fetch/cache failed) just don't
+  // show an image - the onerror handler removes the broken <img> itself.
+  let html = '<img class="popup-thumb" src="'+withToken("/thumb/"+rep.row+".jpg")+'" onerror="this.remove()">';
+  html += '<div class="popup-title">'+esc(rep.location_name)+'</div>';
   html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
   if(item.tags.length) html += '<div class="popup-tags">🏷️ '+esc(item.tags.join(", "))+'</div>';
   if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
   group.forEach((p, i) => {
-    if(p.url){
-      const label = group.length > 1 ? T.videoN(i+1, esc(p.date||"")) : T.openVideo;
-      html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
+    // "poi" entries (imported from a My Maps pin, no source video/photo) have
+    // no meaningful link to open here - the 🧭 Google Maps link below covers it.
+    if(p.url && p.media_type !== "poi"){
+      const isPhoto = p.media_type === "photo";
+      const icon = isPhoto ? "🖼️" : "▶️";
+      const label = group.length > 1
+        ? (isPhoto ? T.photoN(i+1, esc(p.date||"")) : T.videoN(i+1, esc(p.date||"")))
+        : (isPhoto ? T.openPhoto : T.openVideo);
+      html += '<div class="popup-link">'+icon+' <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
     }
   });
   const mapsUrl = rep.maps_url || ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rep.location_name));

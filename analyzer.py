@@ -7,7 +7,10 @@ from extractor import extract_source
 from i18n import CATEGORIES, FALLBACK_CATEGORY, LANG, t
 from models import VideoMetadata
 
-GEMINI_MODEL = "gemini-3.6-flash"
+# Temporarily on flash-lite: gemini-3.6-flash's free-tier daily quota (20
+# req/day/project) got exhausted by today's testing + batch import. flash-lite
+# has its own separate quota. Switch back to "gemini-3.6-flash" once it resets.
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 _client = None
 
@@ -34,6 +37,9 @@ _VIDEO_MIME = {
     ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
     ".mkv": "video/x-matroska", ".m4v": "video/mp4", ".3gp": "video/3gpp",
 }
+_PHOTO_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+}
 
 # The prompts are templates – tokens like __CATEGORIES__ are substituted via .replace()
 # (str.format would clash with the braces of the example JSON).
@@ -43,7 +49,7 @@ _HOTEL_NOTE = {
 }
 
 _SYSTEM_PROMPT_TEMPLATES = {
-    "cs": """Jsi AI asistent, který analyzuje cestovní videa. Dostaneš samotné video, jeho popisek (caption) a URL.
+    "cs": """Jsi AI asistent, který analyzuje cestovní videa a fotky. Dostaneš samotné video nebo fotku, jeho popisek (caption) a URL.
 
 Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném formátu:
 {
@@ -59,8 +65,8 @@ Vrať POUZE validní JSON (bez markdown, bez dalšího textu) v tomto přesném 
 
 Pravidla pro určení místa (DŮLEŽITÉ – v tomto pořadí priority):
 1. NEJDŘÍV hledej konkrétní název místa/adresu v POPISKU (caption) – tvůrci tam místo často uvádějí, typicky za špendlíkem 📍, slovy "kde:", "místo:", nebo v hashtazích. Tohle je nejspolehlivější zdroj.
-2. Pak TEXT ZOBRAZENÝ VE VIDEU (názvy míst, cedule, popisky na obrazovce).
-3. Pak až mluvené slovo ve videu.
+2. Pak TEXT ZOBRAZENÝ VE VIDEU NEBO NA FOTCE (názvy míst, cedule, popisky na obrazovce).
+3. Pak až mluvené slovo ve videu (pokud jde o video).
 4. NIKDY si název místa nevymýšlej. Když místo nejde určit z žádného zdroje, dej do location_name "Neznámé místo" a lat/lng 0.
 
 Další pravidla:
@@ -69,8 +75,8 @@ Další pravidla:
 - lat/lng: odhadni co nejpřesnější souřadnice podle konkrétního názvu místa a adresy
 - tags: max 4 tagy oddělené čárkou, bez mezer kolem čárek; piš je česky
 - summary: piš česky
-- transcript: přepis mluveného slova z videa v původním jazyce; pokud video nemá zvuk, nech prázdný řetězec""",
-    "en": """You are an AI assistant that analyzes travel videos. You get the video itself, its caption and URL.
+- transcript: přepis mluveného slova z videa v původním jazyce; u fotek a videí bez zvuku nech prázdný řetězec""",
+    "en": """You are an AI assistant that analyzes travel videos and photos. You get the video or photo itself, its caption and URL.
 
 Return ONLY valid JSON (no markdown, no extra text) in this exact format:
 {
@@ -86,8 +92,8 @@ Return ONLY valid JSON (no markdown, no extra text) in this exact format:
 
 Rules for determining the place (IMPORTANT – in this order of priority):
 1. FIRST look for a specific place name/address in the CAPTION – creators often state the place there, typically after a pin 📍, after words like "where:", "location:", or in hashtags. This is the most reliable source.
-2. Then TEXT SHOWN IN THE VIDEO (place names, signs, on-screen labels).
-3. Only then the spoken words in the video.
+2. Then TEXT SHOWN IN THE VIDEO OR PHOTO (place names, signs, on-screen labels).
+3. Only then the spoken words in the video (if it is a video).
 4. NEVER make up a place name. If the place cannot be determined from any source, set location_name to "Unknown place" and lat/lng to 0.
 
 Other rules:
@@ -96,7 +102,7 @@ Other rules:
 - lat/lng: estimate the most precise coordinates based on the specific place name and address
 - tags: max 4 comma-separated tags, no spaces around commas; write them in English
 - summary: write in English
-- transcript: transcript of the spoken words in their original language; if the video has no sound, leave an empty string""",
+- transcript: transcript of the spoken words in their original language; for photos and videos without sound, leave an empty string""",
 }
 
 _USER_PROMPT_TEMPLATES = {
@@ -126,6 +132,33 @@ Determine the place primarily from the caption above (often after 📍), then fr
 If the video has sound, transcribe the speech into the transcript field.''',
 }
 
+_USER_PROMPT_PHOTO_TEMPLATES = {
+    "cs": '''URL příspěvku: {url}
+Autor: {author}
+Titulek: {title}
+
+POPISEK PŘÍSPĚVKU (caption – hlavní zdroj pro určení místa):
+"""
+{description}
+"""
+
+Analyzuj přiloženou fotku a extrahuj metadata o místě.
+Místo urči především z popisku výše (často za 📍), pak z toho, co je vidět na fotce (text, cedule, krajina, architektura).
+Jde o fotku bez zvuku, pole transcript nech prázdné.''',
+    "en": '''Post URL: {url}
+Author: {author}
+Title: {title}
+
+POST CAPTION (the primary source for determining the place):
+"""
+{description}
+"""
+
+Analyze the attached photo and extract metadata about the place.
+Determine the place primarily from the caption above (often after 📍), then from what is visible in the photo (text, signs, landscape, architecture).
+This is a photo with no sound, leave the transcript field empty.''',
+}
+
 
 def system_prompt() -> str:
     """System prompt in the bot's language with the categories from the configuration."""
@@ -137,10 +170,11 @@ def system_prompt() -> str:
             .replace("__HOTEL_NOTE__", hotel_note))
 
 
-# Gemini occasionally answers 503 "currently experiencing high demand" – the
-# same request typically succeeds a few seconds later, so retry a couple of
-# times with backoff instead of failing the whole video on a transient spike.
-_RETRY_DELAYS_S = (5, 15)
+# Gemini occasionally answers 503 "currently experiencing high demand", and
+# under batch/burst usage 429 "RESOURCE_EXHAUSTED" (free-tier rate limit) -
+# both are transient, so retry with backoff instead of failing the whole
+# video. Other 4xx errors (bad request, auth, ...) are not retried.
+_RETRY_DELAYS_S = (20, 45, 60)
 
 
 def _generate_with_retry(client: genai.Client, **kwargs):
@@ -149,6 +183,10 @@ def _generate_with_retry(client: genai.Client, **kwargs):
             return client.models.generate_content(model=GEMINI_MODEL, **kwargs)
         except errors.ServerError:
             if delay is None:
+                raise
+            time.sleep(delay)
+        except errors.ClientError as e:
+            if delay is None or e.code != 429:
                 raise
             time.sleep(delay)
 
@@ -161,7 +199,8 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
     description = yt_info.get("description") or ""
 
     ext = os.path.splitext(media_path)[1].lower()
-    mime = _VIDEO_MIME.get(ext, "video/mp4")
+    is_photo = ext in _PHOTO_MIME
+    mime = _PHOTO_MIME[ext] if is_photo else _VIDEO_MIME.get(ext, "video/mp4")
     media_file = client.files.upload(
         file=media_path, config=types.UploadFileConfig(mime_type=mime))
 
@@ -174,7 +213,8 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
     if media_file.state.name != "ACTIVE":
         raise RuntimeError(t("gemini_not_processed", state=media_file.state.name))
 
-    prompt = _USER_PROMPT_TEMPLATES[LANG].format(
+    templates = _USER_PROMPT_PHOTO_TEMPLATES if is_photo else _USER_PROMPT_TEMPLATES
+    prompt = templates[LANG].format(
         url=url, author=author, title=title, description=description[:2000])
 
     response = _generate_with_retry(
@@ -193,7 +233,9 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
         # Gemini returned no text part (safety block, empty response, MAX_TOKENS without text)
         raise RuntimeError(t("gemini_no_text", error=e))
 
-    return parse_metadata(raw, url, author=author, title=title)
+    metadata = parse_metadata(raw, url, author=author, title=title)
+    metadata.media_type = "photo" if is_photo else "video"
+    return metadata
 
 
 def strip_fences(raw: str) -> str:
