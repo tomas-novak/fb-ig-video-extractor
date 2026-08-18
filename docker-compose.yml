@@ -1,8 +1,8 @@
-# Self-hosted deployment behind caddy-docker-proxy:
+# Self-hosted deployment (VPS, NAS, Raspberry Pi):
 #   1. copy .env.example to .env and fill in the keys (leave PUBLIC_URL empty for now)
 #   2. docker compose up -d
-#   3. once HTTPS works (caddy-docker-proxy issues the cert automatically),
-#      set PUBLIC_URL=https://extractor.kozliatko.sk in .env and run
+#   3. only once HTTPS works in front of the container (your own reverse proxy),
+#      set PUBLIC_URL to the public address of the instance and run
 #      `docker compose up -d` again (the bot registers the webhook on every
 #      startup - setting it earlier only piles up failed deliveries)
 services:
@@ -12,24 +12,16 @@ services:
     environment:
       - PORT=8000
       # Overrides HOST from .env: inside a container it must listen on all
-      # interfaces, otherwise the reverse proxy upstream would not work. The
-      # value HOST=127.0.0.1 does not belong here.
+      # interfaces, otherwise the port mapping below would not work. The value
+      # HOST=127.0.0.1 (for deployment behind a reverse proxy) does not belong here.
       - HOST=0.0.0.0
-    networks:
-      - default
-      - caddy
+    ports:
+      - "8000:8000"
     volumes:
       # Cached map-popup thumbnails - must survive rebuilds/recreates, so it
       # cannot live in the container's own (ephemeral) filesystem.
       - thumbnails:/app/data/thumbnails
-    labels:
-      caddy: extractor.kozliatko.sk
-      caddy.reverse_proxy: "{{upstreams 8000}}"
     restart: unless-stopped
-
-networks:
-  caddy:
-    external: true
 
 volumes:
   thumbnails:
