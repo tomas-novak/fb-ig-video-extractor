@@ -1,13 +1,15 @@
 import json
 import os
 import time
-import google.generativeai as genai
+from google import genai
+from google.genai import errors, types
 from extractor import extract_source
 from i18n import CATEGORIES, FALLBACK_CATEGORY, LANG, t
 from models import VideoMetadata
 
+GEMINI_MODEL = "gemini-3.6-flash"
 
-_model = None
+_client = None
 
 
 def _safe_float(v) -> float:
@@ -18,16 +20,15 @@ def _safe_float(v) -> float:
         return 0.0
 
 
-def _get_model():
+def _get_client() -> genai.Client:
     """Lazy init – Gemini is configured on first use, not at import time."""
-    global _model
-    if _model is None:
+    global _client
+    if _client is None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("Missing GEMINI_API_KEY environment variable")
-        genai.configure(api_key=api_key)
-        _model = genai.GenerativeModel("gemini-2.5-flash")
-    return _model
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 _VIDEO_MIME = {
     ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
@@ -136,32 +137,50 @@ def system_prompt() -> str:
             .replace("__HOTEL_NOTE__", hotel_note))
 
 
+# Gemini occasionally answers 503 "currently experiencing high demand" – the
+# same request typically succeeds a few seconds later, so retry a couple of
+# times with backoff instead of failing the whole video on a transient spike.
+_RETRY_DELAYS_S = (5, 15)
+
+
+def _generate_with_retry(client: genai.Client, **kwargs):
+    for delay in (*_RETRY_DELAYS_S, None):
+        try:
+            return client.models.generate_content(model=GEMINI_MODEL, **kwargs)
+        except errors.ServerError:
+            if delay is None:
+                raise
+            time.sleep(delay)
+
+
 def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
     """Send video to Gemini, get transcript + metadata in one call."""
-    model = _get_model()
+    client = _get_client()
     author = yt_info.get("uploader") or yt_info.get("channel") or ""
     title = yt_info.get("title") or ""
     description = yt_info.get("description") or ""
 
     ext = os.path.splitext(media_path)[1].lower()
     mime = _VIDEO_MIME.get(ext, "video/mp4")
-    media_file = genai.upload_file(media_path, mime_type=mime)
+    media_file = client.files.upload(
+        file=media_path, config=types.UploadFileConfig(mime_type=mime))
 
     # The video is processed after upload; we have to wait until it is ACTIVE.
     waited = 0
     while media_file.state.name == "PROCESSING" and waited < 120:
         time.sleep(2)
         waited += 2
-        media_file = genai.get_file(media_file.name)
+        media_file = client.files.get(name=media_file.name)
     if media_file.state.name != "ACTIVE":
         raise RuntimeError(t("gemini_not_processed", state=media_file.state.name))
 
     prompt = _USER_PROMPT_TEMPLATES[LANG].format(
         url=url, author=author, title=title, description=description[:2000])
 
-    response = model.generate_content(
-        [media_file, system_prompt() + "\n\n" + prompt],
-        generation_config=genai.GenerationConfig(
+    response = _generate_with_retry(
+        client,
+        contents=[media_file, system_prompt() + "\n\n" + prompt],
+        config=types.GenerateContentConfig(
             temperature=0,
             max_output_tokens=8192,
             response_mime_type="application/json",
