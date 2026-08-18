@@ -14,6 +14,11 @@ COPY . .
 
 # Do not run as root
 RUN useradd -m app
+# Pre-create the thumbnail cache dir owned by "app": it's a mount point for a
+# named volume (see docker-compose.yml), and Docker only seeds a *fresh*
+# volume's permissions from what already exists here at that path - an
+# already-provisioned volume keeps whatever ownership it started with.
+RUN mkdir -p /app/data/thumbnails && chown -R app:app /app/data
 USER app
 
 ENV PORT=8000

@@ -7,7 +7,7 @@ import httpx
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 
 load_dotenv()
 
@@ -17,8 +17,10 @@ from i18n import t, command_aliases, command_name, help_text, menu_commands
 from sheets import (append_row, read_rows, set_group_ids, new_group_id,
                     find_duplicate, set_visited, delete_place_rows, find_by_place_id)
 from geocoder import geocode, maps_link, distance_km
+from thumbnails import thumbnail_path, save_thumbnail
 from dedup import find_duplicates
 from map_page import render_map
+from landing_page import LANDING_HTML
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -342,7 +344,19 @@ async def process_video(chat_id: int, url: str) -> None:
                 group_note = t("group_note", name=match["location_name"])
 
         # 7) Save to Sheets
-        await asyncio.to_thread(append_row, metadata)
+        row = await asyncio.to_thread(append_row, metadata)
+
+        # 7b) Cache a small preview image for the map popup (best-effort;
+        # never raises - see thumbnails.py). Photos use the file we already
+        # downloaded; videos use yt-dlp's own poster frame; anything else
+        # falls back to a Places Photo of the geocoded place, if any.
+        thumb_url = yt_info.get("thumbnail") or next(
+            (t.get("url") for t in reversed(yt_info.get("thumbnails") or [])), None)
+        source_path = media_path if metadata.media_type == "photo" else None
+        photo_name = geo.get("photo_name", "") if geo else ""
+        await asyncio.to_thread(
+            save_thumbnail, row, source_path=source_path,
+            thumb_url=thumb_url, photo_name=photo_name)
 
         # 8) Reply to the user
         precision = "" if metadata.geo_source == "places" else t("precision_note")
@@ -532,6 +546,11 @@ async def handle_callback(callback: dict) -> None:
         await send_message(chat_id, t("merge_failed", error=f"{type(e).__name__}: {e}"))
 
 
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return LANDING_HTML
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -541,6 +560,15 @@ async def health():
 async def debug(request: Request):
     check_map_token(request)
     return ffmpeg_diagnostics()
+
+
+@app.get("/thumb/{row}.jpg")
+async def thumb(row: int, request: Request):
+    check_map_token(request, write=False)
+    path = thumbnail_path(row)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="no thumbnail")
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/data")

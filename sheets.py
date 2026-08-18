@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 import gspread
 from google.oauth2.service_account import Credentials
@@ -11,8 +12,8 @@ _client = None
 
 # Columns: A date, B url, C author, D title, E place, F lat, G lng,
 #          H category, I tags, J summary, K transcript, L source, M group_id,
-#          N video_id, O visited, P place_id, Q maps_url, R geo_source
-NUM_COLS = 18
+#          N video_id, O visited, P place_id, Q maps_url, R geo_source, S media_type
+NUM_COLS = 19
 URL_COL = 2
 GROUP_COL = 13
 VIDEO_ID_COL = 14
@@ -44,14 +45,21 @@ def new_group_id() -> str:
     return uuid.uuid4().hex[:8]
 
 
-def append_row(metadata: VideoMetadata) -> None:
+def append_row(metadata: VideoMetadata) -> int:
+    """Appends the row and returns its row number (for thumbnails.py etc.) -
+    parsed from the API response, not a second read, to not add to the
+    Sheets read quota that a burst of imports can already hit (see the 429s
+    the mymaps batch import ran into)."""
     if not metadata.group_id:
         metadata.group_id = new_group_id()
     # table_range="A1": without an anchor the API looks for the "table" itself and
     # treats a completely empty column (O: visited) as its end – new rows are then
     # written shifted to the right past column R (see the shifted rows from 7/2026).
-    _get_sheet().append_row(metadata.to_sheets_row(), value_input_option="USER_ENTERED",
-                            table_range="A1")
+    result = _get_sheet().append_row(metadata.to_sheets_row(), value_input_option="USER_ENTERED",
+                                     table_range="A1")
+    updated_range = result.get("updates", {}).get("updatedRange", "")
+    m = re.search(r"![A-Z]+(\d+)", updated_range)
+    return int(m.group(1)) if m else 0
 
 
 def _parse_row(row: list, row_number: int) -> dict | None:
@@ -85,6 +93,8 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "place_id": (row[15] or "").strip(),
         "maps_url": (row[16] or "").strip(),
         "geo_source": (row[17] or "").strip(),
+        # Older rows predate this column - they are all videos.
+        "media_type": (row[18] or "video").strip(),
     }
 
 
