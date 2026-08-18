@@ -7,10 +7,7 @@ from extractor import extract_source
 from i18n import CATEGORIES, FALLBACK_CATEGORY, LANG, t
 from models import VideoMetadata
 
-# Temporarily on flash-lite: gemini-3.6-flash's free-tier daily quota (20
-# req/day/project) got exhausted by today's testing + batch import. flash-lite
-# has its own separate quota. Switch back to "gemini-3.6-flash" once it resets.
-GEMINI_MODEL = "gemini-3.5-flash-lite"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 _client = None
 
