@@ -1,6 +1,9 @@
+import html
 import os
+import re
 import shutil
 import tempfile
+import httpx
 import yt_dlp
 
 from i18n import t
@@ -126,7 +129,23 @@ def download_media(url: str) -> tuple[str, dict]:
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            try:
+                info = ydl.extract_info(url, download=True)
+            except yt_dlp.utils.DownloadError as e:
+                # yt-dlp's Instagram extractor has no downloadable formats for
+                # photo posts at all (video-only) - fall back to grabbing the
+                # photo directly instead of failing the post. Carousels raise
+                # a generic message from the playlist wrapper and still expose
+                # raw entries/thumbnails via process=False; single-photo posts
+                # raise from deep inside the extractor itself before any info
+                # is returned at all, so that path needs a page-scrape instead.
+                msg = str(e)
+                if "No video formats found" in msg:
+                    raw = ydl.extract_info(url, download=False, process=False)
+                    return _download_photo(raw, tmp_dir)
+                if "There is no video in this post" in msg:
+                    return _download_photo_via_webpage(url, tmp_dir)
+                raise
             err = duration_error(info)
             if err:
                 raise RuntimeError(err)
@@ -140,6 +159,62 @@ def download_media(url: str) -> tuple[str, dict]:
         # On failure clean up the temp directory, otherwise it would pile up on the server.
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
+
+
+def _download_photo(raw_info: dict, tmp_dir: str) -> tuple[str, dict]:
+    """Fallback for Instagram photo/carousel posts. yt-dlp's Instagram extractor
+    finds no downloadable formats for these at all (video-only), so instead we
+    grab the highest-resolution CDN thumbnail of the first photo directly.
+    raw_info is the un-processed result of extract_info(process=False), whose
+    top-level fields (id/uploader/description/title) already match what the
+    rest of the pipeline expects from a video's info dict."""
+    entries = list(raw_info.get("entries") or [raw_info])
+    first = entries[0]
+    thumbnails = first.get("thumbnails") or []
+    if not thumbnails:
+        raise RuntimeError("no photo found in post")
+    # yt-dlp orders Instagram thumbnails from lowest to highest resolution.
+    photo_url = thumbnails[-1]["url"]
+    photo_path = os.path.join(tmp_dir, f"{first.get('id', 'photo')}.jpg")
+    with httpx.stream("GET", photo_url, timeout=30) as r:
+        r.raise_for_status()
+        with open(photo_path, "wb") as f:
+            for chunk in r.iter_bytes():
+                f.write(chunk)
+    return photo_path, raw_info
+
+
+def _download_photo_via_webpage(url: str, tmp_dir: str) -> tuple[str, dict]:
+    """Second-level fallback for single (non-carousel) Instagram photo posts.
+    For these yt-dlp's extractor raises deep inside its own code before
+    returning any info at all, even with process=False, so there is nothing
+    to fall back on within yt-dlp itself. Instagram still serves standard
+    Open Graph meta tags on the public post page (for link previews), so we
+    scrape the photo URL and caption straight from there instead."""
+    r = httpx.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15, follow_redirects=True)
+    r.raise_for_status()
+    page = r.text
+
+    def og(prop: str) -> str:
+        m = re.search(rf'<meta property="{prop}" content="([^"]*)"', page)
+        return html.unescape(m.group(1)) if m else ""
+
+    photo_url = og("og:image")
+    if not photo_url:
+        raise RuntimeError("no photo found in post")
+
+    # og:title is "{author} on Instagram: "{caption}"" for posts with a caption.
+    author, _, rest = og("og:title").partition(" on Instagram: ")
+    description = rest.strip().strip('"') if rest else og("og:description")
+
+    post_id = url.rstrip("/").rsplit("/", 1)[-1]
+    photo_path = os.path.join(tmp_dir, f"{post_id}.jpg")
+    with httpx.stream("GET", photo_url, timeout=30) as resp:
+        resp.raise_for_status()
+        with open(photo_path, "wb") as f:
+            for chunk in resp.iter_bytes():
+                f.write(chunk)
+    return photo_path, {"id": post_id, "uploader": author, "description": description, "title": ""}
 
 
 def extract_source(url: str) -> str:

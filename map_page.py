@@ -4,16 +4,24 @@ The template is static; the language (BOT_LANGUAGE) and categories (CATEGORIES)
 are substituted into it at render time by render_map() – the __MAP_*__ tokens.
 """
 import json
+from urllib.parse import quote_plus
 
 from i18n import CATEGORIES, LANG
 
 
-def render_map() -> str:
-    """Substitute the language and categories from the configuration into the map HTML template."""
+def render_map(token: str = "") -> str:
+    """Substitute the language, categories and manifest URL into the map HTML
+    template. The manifest href must already contain the token in the
+    server-rendered HTML: Safari's "Add to Home Screen" reads <link
+    rel="manifest"> while parsing the page, before any JS runs, so patching
+    the href in afterwards (as we used to) silently loses the token there -
+    the installed icon then opens an unauthenticated /map that 403s."""
+    manifest_href = f"/manifest.json?token={quote_plus(token)}" if token else "/manifest.json"
     return (MAP_HTML
             .replace("__MAP_LANG_ATTR__", LANG)
             .replace("__MAP_LANG__", json.dumps(LANG))
-            .replace("__MAP_CATEGORIES__", json.dumps(CATEGORIES, ensure_ascii=False)))
+            .replace("__MAP_CATEGORIES__", json.dumps(CATEGORIES, ensure_ascii=False))
+            .replace("__MAP_MANIFEST_HREF__", manifest_href))
 
 
 MAP_HTML = r"""<!DOCTYPE html>
@@ -23,6 +31,15 @@ MAP_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
 <title></title>
+<link rel="icon" href="/icon-192.png" type="image/png">
+<!-- token baked in server-side by render_map() - see its docstring for why -->
+<link rel="manifest" href="__MAP_MANIFEST_HREF__">
+<meta name="theme-color" content="#2196f3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" id="apple-title" content="">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   * { box-sizing: border-box; }
@@ -40,10 +57,17 @@ MAP_HTML = r"""<!DOCTYPE html>
   }
   #panel-head .title { font-size: 15px; font-weight: 600; }
   #panel-head .count { font-size: 12px; font-weight: normal; color: #666; }
+  .head-buttons { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   #toggle {
     border: none; background: #f0f0f0; border-radius: 8px; padding: 6px 12px;
     font-size: 14px; cursor: pointer; white-space: nowrap;
   }
+  #locate-btn {
+    border: none; background: #f0f0f0; border-radius: 8px; padding: 6px 10px;
+    font-size: 15px; cursor: pointer; line-height: 1;
+  }
+  #locate-btn:active { background: #e0e0e0; }
+  #locate-btn.busy { opacity: .5; }
   #panel-body { display: none; padding: 0 12px 12px; max-height: 60vh; overflow-y: auto; }
   #panel-body.open { display: block; }
   .group-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin: 8px 0 4px; }
@@ -61,6 +85,13 @@ MAP_HTML = r"""<!DOCTYPE html>
   .chip.off { opacity: .35; }
   .chip.tag.on { border-color: #333; background: #333; color: #fff; }
   .chip.visited-toggle.on { border-color: #4caf50; background: #4caf50; color: #fff; }
+  #search-bar { padding: 0 12px 10px; }
+  #search-box {
+    width: 100%; box-sizing: border-box; border: 2px solid #ccc; border-radius: 999px;
+    padding: 7px 14px; font-size: 13px; outline: none; font-family: inherit;
+  }
+  #search-box:focus { border-color: #2196f3; }
+  .popup-thumb { width: 100%; max-height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: block; }
   .popup-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
   .popup-cat { display: inline-block; color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-bottom: 6px; }
   .popup-tags { color: #666; font-size: 12px; margin-bottom: 6px; }
@@ -87,7 +118,13 @@ MAP_HTML = r"""<!DOCTYPE html>
 <div id="panel">
   <div id="panel-head">
     <span class="title"><span id="panel-title"></span> <span class="count" id="count"></span></span>
-    <button id="toggle"></button>
+    <span class="head-buttons">
+      <button id="locate-btn" title="">📍</button>
+      <button id="toggle"></button>
+    </span>
+  </div>
+  <div id="search-bar">
+    <input type="text" id="search-box" autocomplete="off">
   </div>
   <div id="panel-body">
     <div class="group-label" id="label-view"></div>
@@ -123,10 +160,14 @@ const TEXTS = {
   cs: {
     title: "Výlety – mapa", panelTitle: "🗺️ Výlety",
     filters: "☰ Filtry", close: "✕ Zavřít",
+    searchPlaceholder: "🔍 Hledat podle názvu, tagů, popisu…",
+    locate: "Najít mě na mapě", locateFailed: "Polohu se nepodařilo zjistit: ",
+    locateNoSupport: "Tento prohlížeč neumí zjistit polohu.",
     view: "Zobrazení", categories: "Kategorie", tags: "Tagy", exportLabel: "Export",
     all: "vše", none: "nic", visitedOnly: "✓ jen navštívené",
     count: (shown, total) => "(" + shown + " / " + total + " míst)",
     openVideo: "Otevřít video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openPhoto: "Otevřít fotku", photoN: (n, date) => "Fotka " + n + " (" + date + ")",
     openMaps: "Otevřít v Google Maps",
     approx: "⚠️ přibližná poloha (odhad AI)",
     visit: "✅ Už jsme navštívili", unvisit: "↩️ Vrátit mezi nenavštívené",
@@ -139,10 +180,14 @@ const TEXTS = {
   en: {
     title: "Trips – map", panelTitle: "🗺️ Trips",
     filters: "☰ Filters", close: "✕ Close",
+    searchPlaceholder: "🔍 Search by name, tags, description…",
+    locate: "Find me on the map", locateFailed: "Could not get your location: ",
+    locateNoSupport: "This browser can't get your location.",
     view: "View", categories: "Categories", tags: "Tags", exportLabel: "Export",
     all: "all", none: "none", visitedOnly: "✓ visited only",
     count: (shown, total) => "(" + shown + " / " + total + " places)",
     openVideo: "Open video", videoN: (n, date) => "Video " + n + " (" + date + ")",
+    openPhoto: "Open photo", photoN: (n, date) => "Photo " + n + " (" + date + ")",
     openMaps: "Open in Google Maps",
     approx: "⚠️ approximate location (AI estimate)",
     visit: "✅ Mark as visited", unvisit: "↩️ Mark as not visited",
@@ -157,7 +202,10 @@ const T = TEXTS[LANG] || TEXTS.cs;
 
 // Static page texts
 document.title = T.title;
+document.getElementById("apple-title").content = LANG === "cs" ? "Výlety" : "Trips";
 document.getElementById("panel-title").textContent = T.panelTitle;
+document.getElementById("search-box").placeholder = T.searchPlaceholder;
+document.getElementById("locate-btn").title = T.locate;
 document.getElementById("label-view").textContent = T.view;
 document.getElementById("label-categories").textContent = T.categories;
 document.getElementById("label-tags").textContent = T.tags;
@@ -181,6 +229,8 @@ CATEGORIES.forEach((cat, i) => { COLORS[cat] = PALETTE[i % PALETTE.length]; });
 function colorFor(cat){ return COLORS[cat] || GREY; }
 function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 function parseTags(s){ return (s||"").split(",").map(t => t.trim()).filter(Boolean); }
+// Diacritics-insensitive lowercase, same idea as _fold() in main.py's /search command.
+function fold(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
 
 // Collapsible filter panel (on mobile it would otherwise cover the map)
 const body = document.getElementById("panel-body");
@@ -199,13 +249,15 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 map.on("click", () => setOpen(false));
 
 let CAN_EDIT = true;     // false = read-only shared view (the server hides mutations)
-const items = {};        // key -> {marker, category, tags[], visited, group[]}
+const items = {};        // key -> {marker, category, tags[], visited, group[], searchText}
 const activeCat = {};    // category -> bool
 const activeTag = {};    // tag -> bool
 let visitedMode = false; // false = unvisited only, true = visited ONLY
+let searchTerm = "";     // folded (diacritics-insensitive, lowercase) free-text filter
 
 function placeVisible(item){
   if(visitedMode !== item.visited) return false;
+  if(searchTerm && !item.searchText.includes(searchTerm)) return false;
   if(!activeCat[item.category]) return false;
   if(item.tags.length === 0) return true;
   return item.tags.some(t => activeTag[t]);
@@ -232,14 +284,23 @@ function buildPopup(key){
   const group = item.group;
   const rep = group[0];
   const cat = item.category;
-  let html = '<div class="popup-title">'+esc(rep.location_name)+'</div>';
+  // Missing thumbnails (older rows, or the fetch/cache failed) just don't
+  // show an image - the onerror handler removes the broken <img> itself.
+  let html = '<img class="popup-thumb" src="'+withToken("/thumb/"+rep.thumb_key+".jpg")+'" onerror="this.remove()">';
+  html += '<div class="popup-title">'+esc(rep.location_name)+'</div>';
   html += '<span class="popup-cat" style="background:'+colorFor(cat)+'">'+esc(cat)+'</span>';
   if(item.tags.length) html += '<div class="popup-tags">🏷️ '+esc(item.tags.join(", "))+'</div>';
   if(rep.summary) html += '<div class="popup-summary">'+esc(rep.summary)+'</div>';
   group.forEach((p, i) => {
-    if(p.url){
-      const label = group.length > 1 ? T.videoN(i+1, esc(p.date||"")) : T.openVideo;
-      html += '<div class="popup-link">▶️ <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
+    // "poi" entries (imported from a My Maps pin, no source video/photo) have
+    // no meaningful link to open here - the 🧭 Google Maps link below covers it.
+    if(p.url && p.media_type !== "poi"){
+      const isPhoto = p.media_type === "photo";
+      const icon = isPhoto ? "🖼️" : "▶️";
+      const label = group.length > 1
+        ? (isPhoto ? T.photoN(i+1, esc(p.date||"")) : T.videoN(i+1, esc(p.date||"")))
+        : (isPhoto ? T.openPhoto : T.openVideo);
+      html += '<div class="popup-link">'+icon+' <a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+label+'</a></div>';
     }
   });
   const mapsUrl = rep.maps_url || ("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(rep.location_name));
@@ -278,10 +339,11 @@ window.deletePlace = function(key, btn){
   }
   btn.disabled = true;
   const rows = item.group.map(p => p.row);
+  const urls = item.group.map(p => p.url);
   fetch(withToken("/delete"), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({rows: rows}),
+    body: JSON.stringify({rows: rows, urls: urls}),
   }).then(r => {
     if(r.status === 403) throw new Error(T.badToken);
     return r.json();
@@ -373,6 +435,32 @@ visitedChip.onclick = () => {
   applyFilters();
 };
 
+const searchBox = document.getElementById("search-box");
+searchBox.addEventListener("input", () => {
+  searchTerm = fold(searchBox.value);
+  applyFilters();
+});
+
+const locateBtn = document.getElementById("locate-btn");
+locateBtn.addEventListener("click", () => {
+  if(!navigator.geolocation){
+    document.getElementById("status").textContent = T.locateNoSupport;
+    return;
+  }
+  locateBtn.classList.add("busy");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      locateBtn.classList.remove("busy");
+      map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+    },
+    (err) => {
+      locateBtn.classList.remove("busy");
+      document.getElementById("status").textContent = T.locateFailed + err.message;
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
+
 fetch(withToken("/data")).then(r => {
   if(r.status === 403) throw new Error(T.badTokenLoad);
   CAN_EDIT = r.headers.get("X-Can-Edit") !== "0";
@@ -402,7 +490,9 @@ fetch(withToken("/data")).then(r => {
       radius: 9, color: "#fff", weight: 2,
       fillColor: visited ? "#9e9e9e" : colorFor(cat), fillOpacity: 0.9
     });
-    items[key] = { marker: m, category: cat, tags: tags, visited: visited, group: group };
+    const searchText = fold(group.map(p =>
+      [p.location_name, p.author, p.title, p.summary, p.tags].join(" ")).join(" ") + " " + cat);
+    items[key] = { marker: m, category: cat, tags: tags, visited: visited, group: group, searchText: searchText };
     m.bindPopup(buildPopup(key));
     bounds.push([rep.lat, rep.lng]);
   });
