@@ -50,7 +50,7 @@ phone without filling anything in by hand.
 - Claude Haiku (judging duplicate places)
 - Google Sheets (place database)
 - FastAPI (backend, self-hosted on a VPS)
-- Leaflet + OpenStreetMap (map)
+- Leaflet + OpenStreetMap data, served via CARTO's basemap tiles (map)
 
 ## Setup — your own instance (~15 minutes, all free)
 
