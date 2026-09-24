@@ -79,6 +79,11 @@ Create API key → `GEMINI_API_KEY`. Free tier bohatě stačí.
 - `MAP_TOKEN` — ochrana mapy (bez něj je mapa veřejná)
 - `MAP_VIEW_TOKEN` — samostatný read-only token mapy, bezpečný na sdílení
   (jen prohlížení — bez mazání a označování navštíveného)
+- `CARTO_API_KEY` — potřebné, aby se na `/map` načetly dlaždice mapy. `tile.openstreetmap.org`
+  blokuje jakékoliv vestavěné/produkční použití, takže mapa místo toho používá CARTO
+  basemap CDN (zdarma, bez karty, do 5M požadavků měsíčně pro nekomerční použití —
+  klíč zdarma na [carto.com/basemaps](https://carto.com/basemaps), doporučeno omezit
+  přes Referer na vlastní doménu). Zbytek bota funguje i bez něj, potřebuje ho jen `/map`.
 - `WEBHOOK_SECRET` — ověřování Telegram webhooků
 - `BOT_LANGUAGE` — jazyk odpovědí bota, mapy a AI shrnutí: `en` (výchozí)
   nebo `cs`. **Pro češtinu je potřeba nastavit `BOT_LANGUAGE=cs`.**

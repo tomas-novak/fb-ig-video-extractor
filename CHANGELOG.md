@@ -46,6 +46,16 @@ and will be rolled into a version at the first public release.
   Pages) with sample places — category/tag filtering and the visited toggle
   work the same as the real `/map`, with no bot or backend behind it.
 
+### Fixed
+- The map's tiles started returning 403 "Access blocked" — `tile.openstreetmap.org`
+  disallows any embedded/production use, and our traffic tripped that block. Switched
+  `/map` and the static demo to CARTO's basemap CDN, which is meant for this and stays
+  free up to 5M requests/month; new required setting `CARTO_API_KEY` (see `.env.example`).
+  Also loosened the map page's `referrer` policy from `no-referrer` to
+  `strict-origin-when-cross-origin` so CARTO's Referer-based key restriction has something
+  to check — this still keeps the `?token=` in the page's own URL from leaking to CARTO,
+  since only the origin (not the full URL) is sent cross-origin.
+
 ### Existing features (state before the changelog was introduced)
 - Telegram bot: saving a place from a Facebook/Instagram video URL (yt-dlp +
   Gemini 2.5 Flash + Google Sheets), duplicate detection by URL and video ID.

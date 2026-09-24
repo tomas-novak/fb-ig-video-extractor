@@ -82,6 +82,11 @@ Create API key → `GEMINI_API_KEY`. The free tier is more than enough.
 - `MAP_TOKEN` — map protection (without it the map is public)
 - `MAP_VIEW_TOKEN` — separate read-only map token, safe to share (viewing
   only — no deleting or marking as visited)
+- `CARTO_API_KEY` — required for the `/map` view's tiles to load. `tile.openstreetmap.org`
+  blocks any embedded/production use, so the map uses CARTO's basemap CDN instead (free,
+  no card, up to 5M requests/month non-commercial — get one at
+  [carto.com/basemaps](https://carto.com/basemaps) and restrict it by Referer to your
+  own domain). The rest of the bot works fine without it; only `/map` needs it.
 - `WEBHOOK_SECRET` — Telegram webhook verification
 - `BOT_LANGUAGE` — language of bot replies, the map and AI summaries:
   `en` (default) or `cs`. The audio transcript always stays in the

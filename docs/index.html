@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>FB/IG Video Extractor — Live Demo</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -161,8 +161,8 @@ setOpen(true);
 toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.classList.contains("open")); });
 
 const map = L.map("map").setView([49.8, 15.5], 7);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19, attribution: "© OpenStreetMap"
+L.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3w26_1_02557843e55a539e95bee5fc", {
+  maxZoom: 19, attribution: "© OpenStreetMap, © CARTO"
 }).addTo(map);
 map.on("click", () => setOpen(false));
 
