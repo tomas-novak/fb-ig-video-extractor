@@ -34,6 +34,9 @@ determination more accurate.
 - **Video download**: yt-dlp (format `hd/sd/best`)
 - **AI (video analysis)**: Google Gemini 2.5 Flash (multimodal video – audio + image)
 - **Database**: Google Sheets (google-auth + gspread)
+- **Map**: Leaflet, OpenStreetMap data served via CARTO's basemap tiles (`CARTO_API_KEY`,
+  Referer-restricted to the app's own domain(s) — `tile.openstreetmap.org` itself disallows
+  embedded/production use and will 403 the tiles)
 - **Hosting**: own VPS (Ubuntu 22.04, systemd + Caddy)
 
 ## Key files
@@ -48,6 +51,7 @@ FB_IG_video_extractor/
 ├── analyzer.py        # Gemini API calls (transcription + analysis)
 ├── i18n.py            # bot language (BOT_LANGUAGE) + categories (CATEGORIES) + texts
 ├── sheets.py          # Google Sheets writing
+├── map_page.py        # /map HTML page (Leaflet + CARTO tiles, filters, i18n)
 ├── models.py          # data models (VideoMetadata)
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update and DuckDNS scripts

@@ -48,7 +48,7 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 - Claude Haiku (posuzování duplicitních míst)
 - Google Sheets (databáze míst)
 - FastAPI (backend, self-hosted na VPS)
-- Leaflet + OpenStreetMap (mapa)
+- Leaflet + data OpenStreetMap, servírovaná přes CARTO basemap dlaždice (mapa)
 
 ## Nastavení — vlastní instance (~15 minut, vše zdarma)
 
