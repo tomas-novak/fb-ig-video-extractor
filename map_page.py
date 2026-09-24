@@ -4,8 +4,14 @@ The template is static; the language (BOT_LANGUAGE) and categories (CATEGORIES)
 are substituted into it at render time by render_map() – the __MAP_*__ tokens.
 """
 import json
+import os
 
 from i18n import CATEGORIES, LANG
+
+# tile.openstreetmap.org blocks any production/embedded use (operations.osmfoundation.org/policies/tiles) -
+# CARTO's basemap CDN is meant for exactly this and stays free up to 5M requests/month, but requires a
+# key (carto.com/basemaps). Get one for free and restrict it (Referer) to this app's own domain(s).
+CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "")
 
 
 def render_map() -> str:
@@ -13,7 +19,8 @@ def render_map() -> str:
     return (MAP_HTML
             .replace("__MAP_LANG_ATTR__", LANG)
             .replace("__MAP_LANG__", json.dumps(LANG))
-            .replace("__MAP_CATEGORIES__", json.dumps(CATEGORIES, ensure_ascii=False)))
+            .replace("__MAP_CATEGORIES__", json.dumps(CATEGORIES, ensure_ascii=False))
+            .replace("__MAP_CARTO_KEY__", CARTO_API_KEY))
 
 
 MAP_HTML = r"""<!DOCTYPE html>
@@ -21,7 +28,7 @@ MAP_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title></title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -193,8 +200,8 @@ setOpen(false);
 toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.classList.contains("open")); });
 
 const map = L.map("map").setView([49.8, 15.5], 7);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19, attribution: "© OpenStreetMap"
+L.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=__MAP_CARTO_KEY__", {
+  maxZoom: 19, attribution: "© OpenStreetMap, © CARTO"
 }).addTo(map);
 map.on("click", () => setOpen(false));
 
