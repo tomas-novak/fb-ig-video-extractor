@@ -201,7 +201,7 @@ toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!body.
 
 const map = L.map("map").setView([49.8, 15.5], 7);
 L.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=__MAP_CARTO_KEY__", {
-  maxZoom: 19, attribution: "© OpenStreetMap, © CARTO"
+  maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution/">CARTO</a>'
 }).addTo(map);
 map.on("click", () => setOpen(false));
 
