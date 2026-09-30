@@ -350,24 +350,14 @@ async def process_video(chat_id: int, url: str) -> None:
                 group_note = t("group_note", name=match["location_name"])
 
         # 7) Save to Sheets
-        row = await asyncio.to_thread(append_row, metadata)
+        await asyncio.to_thread(append_row, metadata)
 
         # 7b) Cache a small preview image for the map popup (best-effort;
-        # never raises - see thumbnails.py). Photos use the file we already
-        # downloaded; videos use yt-dlp's own poster frame; anything else
-        # falls back to a Places Photo of the geocoded place, if any.
-        thumb_url = yt_info.get("thumbnail") or next(
-            (t.get("url") for t in reversed(yt_info.get("thumbnails") or [])), None)
-        source_path = media_path if metadata.media_type == "photo" else None
-        photo_name = geo.get("photo_name", "") if geo else ""
-        await asyncio.to_thread(
-            save_thumbnail, row, source_path=source_path,
-            thumb_url=thumb_url, photo_name=photo_name)
-
-        # 7b) Cache a small preview image for the map popup (best-effort;
-        # never raises - see thumbnails.py). Photos use the file we already
-        # downloaded; videos use yt-dlp's own poster frame; anything else
-        # falls back to a Places Photo of the geocoded place, if any.
+        # never raises for the video/thumb_url path - see thumbnails.py. The
+        # source_path/photo path below can still raise, see the note there).
+        # Photos use the file we already downloaded; videos use yt-dlp's own
+        # poster frame; anything else falls back to a Places Photo of the
+        # geocoded place, if any.
         thumb_url = yt_info.get("thumbnail") or next(
             (t.get("url") for t in reversed(yt_info.get("thumbnails") or [])), None)
         source_path = media_path if metadata.media_type == "photo" else None
