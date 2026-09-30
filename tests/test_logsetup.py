@@ -59,3 +59,19 @@ class TestSetupLogging:
         with open(tmp_log_dir.LOG_FILE) as f:
             lines = [l for l in f.read().splitlines() if "one line" in l]
         assert len(lines) == 1
+
+    def test_http_client_request_urls_are_not_logged(self, tmp_log_dir):
+        # The Telegram Bot API embeds the bot token directly in the request URL
+        # (api.telegram.org/bot<TOKEN>/method), and httpx/httpcore log that full URL at
+        # INFO by default - attached to the root logger, that would write live secrets
+        # into this deliberately world-readable file. Real problems (warnings/errors)
+        # from these loggers must still come through.
+        tmp_log_dir.setup_logging()
+        for name in ("httpx", "httpcore", "urllib3"):
+            logger = logging.getLogger(name)
+            logger.info('HTTP Request: POST https://api.telegram.org/botFAKE_TOKEN_123/x "200 OK"')
+            logger.warning("a real problem from %s", name)
+        with open(tmp_log_dir.LOG_FILE) as f:
+            content = f.read()
+        assert "FAKE_TOKEN_123" not in content
+        assert content.count("a real problem from") == 3

@@ -19,6 +19,15 @@ from logging.handlers import RotatingFileHandler
 LOG_DIR = os.getenv("LOG_DIR", "data/logs")
 LOG_FILE = os.path.join(LOG_DIR, "bot.log")
 
+# The Telegram Bot API embeds the bot token directly in the request URL
+# (api.telegram.org/bot<TOKEN>/method) rather than a header, and Google's APIs commonly
+# take their key as a "?key=..." query parameter - both HTTP client libraries below log
+# the full request URL at INFO level by default. Attached to the root logger (see
+# setup_logging()) that would write live secrets into a file this same setup deliberately
+# makes world-readable. Keep these at WARNING so only real problems (timeouts, 4xx/5xx)
+# get logged, never the routine "200 OK" lines that carry the credential.
+_QUIET_AT_WARNING = ("httpx", "httpcore", "urllib3", "google_genai")
+
 # Guards against double setup: `uvicorn.run("main:app", ...)` re-imports main.py under the
 # module name "main" even when it is already running as "__main__" (same file, same process,
 # a second execution of its top-level code) - but this logsetup module itself is only ever
@@ -47,6 +56,8 @@ def setup_logging() -> None:
     root.setLevel(logging.INFO)
     root.addHandler(file_handler)
     root.addHandler(logging.StreamHandler())
+    for name in _QUIET_AT_WARNING:
+        logging.getLogger(name).setLevel(logging.WARNING)
     try:
         os.chmod(LOG_FILE, 0o644)
     except OSError:
