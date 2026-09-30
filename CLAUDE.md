@@ -2,9 +2,10 @@
 
 ## What this project does
 
-A Telegram bot that takes a Facebook Reels or Instagram Reels URL, automatically
-pulls the video content, transcribes the audio, extracts the place and saves the
-metadata to Google Sheets.
+A Telegram bot that takes a Facebook/Instagram Reel, TikTok, YouTube Short, or an
+Instagram photo/carousel post URL, automatically pulls the content, transcribes the
+audio (video) or reads the image (photo), extracts the place and saves the metadata
+to Google Sheets.
 
 Live demo of the map (static sample data, no bot required):
 https://tomas-novak.github.io/fb-ig-video-extractor/ (source: `docs/index.html`).
@@ -16,8 +17,12 @@ User (phone)
   → sends a URL to the Telegram bot
       → Python API (VPS)
           → yt-dlp downloads the VIDEO (not audio – FB offers no audio-only stream to datacenters)
-          → Gemini Flash analyzes the video: audio transcript + on-screen text + caption (one call)
-          → Google Sheets API saves a row
+            (Instagram photo/carousel posts: no video formats exist at all, so extractor.py's
+            `_download_photo()`/`_download_photo_via_webpage()` fall back to the raw
+            thumbnail, or for single photos to scraping the post's Open Graph tags)
+          → Gemini Flash analyzes the video or photo: audio transcript (video only) +
+            on-screen text + caption (one call)
+          → Google Sheets API saves a row, thumbnails.py caches a small preview for the map
           → Telegram Bot API replies to the user
 ```
 
@@ -32,7 +37,9 @@ determination more accurate.
 - **Web framework**: FastAPI + uvicorn
 - **Telegram**: python-telegram-bot or direct Bot API calls
 - **Video download**: yt-dlp (format `hd/sd/best`)
-- **AI (video analysis)**: Google Gemini 2.5 Flash (multimodal video – audio + image)
+- **AI (video/photo analysis)**: Google Gemini (multimodal - audio + image), via the
+  `google-genai` SDK (not the deprecated `google-generativeai`); the exact model is
+  `GEMINI_MODEL` in `analyzer.py`, bumped there whenever Google deprecates the current one
 - **Database**: Google Sheets (google-auth + gspread)
 - **Map**: Leaflet, OpenStreetMap data served via CARTO's basemap tiles (`CARTO_API_KEY`,
   Referer-restricted to the app's own domain(s) — `tile.openstreetmap.org` itself disallows
@@ -51,7 +58,10 @@ FB_IG_video_extractor/
 ├── analyzer.py        # Gemini API calls (transcription + analysis)
 ├── i18n.py            # bot language (BOT_LANGUAGE) + categories (CATEGORIES) + texts
 ├── sheets.py          # Google Sheets writing
-├── map_page.py        # /map HTML page (Leaflet + CARTO tiles, filters, i18n)
+├── geocoder.py        # Google Places API (coordinates, maps link, place photos)
+├── thumbnails.py      # map-popup preview image cache (GET /thumb/<key>.jpg)
+├── landing_page.py    # GET / - static notice page (was a bare 404)
+├── map_page.py        # /map HTML page (Leaflet + CARTO tiles, filters, search, i18n)
 ├── logsetup.py        # rotating log file (data/logs/bot.log), readable without root
 ├── models.py          # data models (VideoMetadata)
 ├── requirements.txt
@@ -76,12 +86,17 @@ The three required for any deployment: `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`,
 
 ## Google Sheets structure (Sheet1)
 
-| A: Date | B: URL | C: Author | D: Title | E: Place | F: Lat | G: Lng | H: Category | I: Tags | J: Summary | K: Transcript | L: Source | M: group_id |
+| A: Date | B: URL | C: Author | D: Title | E: Place | F: Lat | G: Lng | H: Category | I: Tags | J: Summary | K: Transcript | L: Source | M: group_id | N: video_id | O: visited | P: place_id | Q: maps_url | R: geo_source | S: media_type |
 
 **M: group_id** — places with the same group_id are shown on the map as a single
 pin with multiple videos. Merging is proposed by Claude Haiku (the dedup command
 in Telegram → Merge/Keep buttons). See `dedup.py`. Merging deletes nothing and is
 reversible (clear the group_id in the sheet).
+
+**S: media_type** — `"video"` or `"photo"`; older rows predate this column and
+read as `"video"` (see `sheets.py`'s `read_rows()`). Drives the map popup's
+"Open video"/"Open photo" link text and which Gemini prompt template
+(`analyzer.py`) the source was analyzed with.
 
 ## Supported URL formats
 

@@ -313,6 +313,14 @@ journalctl -u fbig-bot -n 100      # last 100 lines
 journalctl -u fbig-bot --since "1 hour ago"
 ```
 
+A subset also lands in a rotating file at `/opt/fbig-bot/data/logs/bot.log`
+(world-readable, so it works without `journalctl` access/root - e.g. `tail -f
+/opt/fbig-bot/data/logs/bot.log`): specifically, whatever goes through Python's
+`logging` module, not the operational `print()` lines (webhook registration,
+Telegram API failures, etc.) that still only show up in `journalctl` above. A
+`process_video` failure logs a full traceback to the file, and a Gemini
+JSON-parsing failure logs the raw response that caused it.
+
 **Restart:**
 
 ```bash

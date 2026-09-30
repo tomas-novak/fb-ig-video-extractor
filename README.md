@@ -23,7 +23,8 @@ phone without filling anything in by hand.
 
 ## How it works
 
-1. You find an interesting video on Facebook, Instagram, TikTok or YouTube
+1. You find an interesting video (or an Instagram photo/carousel post) on
+   Facebook, Instagram, TikTok or YouTube
 2. You tap "Share" → copy the URL → send it to your bot on Telegram
    (shortened share links work too: `fb.watch`, `vm.tiktok.com`, `youtu.be`)
 3. The bot replies within ~30 seconds:
@@ -37,9 +38,10 @@ phone without filling anything in by hand.
    🧭 https://www.google.com/maps/search/?api=1&query=50.23,14.09&query_place_id=...
    ```
 4. The place is saved to Google Sheets including precise GPS coordinates
-   (Google Places), an audio transcript and a Google Maps link
-5. On `/map` you see all places on a map — filtering by categories and tags,
-   marking visited places, merging duplicates
+   (Google Places), an audio transcript (for videos) and a Google Maps link
+5. On `/map` you see all places on a map — full-text search, filtering by
+   categories and tags, marking visited places, merging duplicates, a
+   "find me" button, and (see below) an installable home-screen icon
 
 ## Tech stack
 
@@ -158,14 +160,16 @@ actually paused/removed in the dashboard.
 1. Send `/id` to the bot → it returns your Telegram ID
 2. Set `TELEGRAM_ALLOWED_USERS=<your_id>` — otherwise anyone can use the
    bot and burn your API credit
-3. Map: `https://your-instance/map?token=MAP_TOKEN`
+3. Map: `https://your-instance/map?token=MAP_TOKEN` — on a phone, "Add to
+   Home Screen" installs it as an app (icon + your token both included, so
+   it opens straight into your own map)
 
 Detailed technical docs: [CLAUDE.md](CLAUDE.md) · feature plan:
 [ROADMAP.md](ROADMAP.md) · changes: [CHANGELOG.md](CHANGELOG.md)
 
 ## Bot commands
 
-- send a video URL → saves the place
+- send a video or Instagram photo/carousel URL → saves the place
 - send your location (Telegram Location attachment) → closest saved places
 - `/search <text>` (alias `/hledej`) — search your saved places
 - `/dedup` (alias `/zkontroluj`) — check for duplicate places
@@ -207,9 +211,9 @@ request.
   reliability from datacenter IPs may vary with TikTok's anti-bot measures.
   If downloads keep failing, open an issue with the error message from the
   bot's reply.
-- **The Gemini free tier has rate limits.** When sending several videos in
-  quick succession, analysis may fail temporarily — wait a moment and send
-  the video again.
+- **The Gemini free tier has rate limits.** The bot already retries transient
+  503/429 responses automatically (with backoff); if several videos in quick
+  succession still fail, wait a moment and send the video again.
 - **Video length.** The bot is built for short videos (Reels, TikTok,
   Shorts). Videos longer than 10 minutes are rejected before downloading —
   the limit can be changed via `MAX_VIDEO_MINUTES` (0 = no limit). Even for

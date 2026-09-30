@@ -21,7 +21,8 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
 
 ## Jak to funguje
 
-1. Najdeš zajímavé video na Facebooku, Instagramu, TikToku nebo YouTube
+1. Najdeš zajímavé video (nebo příspěvek s fotkou/karuselem na Instagramu)
+   na Facebooku, Instagramu, TikToku nebo YouTube
 2. Klikneš "Sdílet" → zkopíruješ URL → pošleš svému botovi v Telegramu
    (fungují i zkrácené share linky: `fb.watch`, `vm.tiktok.com`, `youtu.be`)
 3. Bot do ~30 sekund odpoví:
@@ -35,9 +36,10 @@ výlety, restaurace...). Chci je jednoduše uložit z telefonu bez ručního vyp
    🧭 https://www.google.com/maps/search/?api=1&query=50.23,14.09&query_place_id=...
    ```
 4. Místo se uloží do Google Sheets včetně přesných GPS souřadnic (Google
-   Places), přepisu zvuku a odkazu na Google Maps
-5. Na `/map` vidíš všechna místa na mapě — filtrování podle kategorií a tagů,
-   označování navštívených míst, slučování duplicit
+   Places), přepisu zvuku (u videí) a odkazu na Google Maps
+5. Na `/map` vidíš všechna místa na mapě — fulltextové vyhledávání, filtrování
+   podle kategorií a tagů, označování navštívených míst, slučování duplicit,
+   tlačítko "najdi mě" a (viz níže) instalovatelnou ikonu na ploše
 
 ## Technologie
 
@@ -153,14 +155,16 @@ pozastavit/odstranit v dashboardu.
 1. Pošli botovi `/id` → vrátí tvoje Telegram ID
 2. Nastav `TELEGRAM_ALLOWED_USERS=<tvoje_id>` — jinak může bota používat
    kdokoliv a čerpat tvůj API kredit
-3. Mapa: `https://tvoje-instance/map?token=MAP_TOKEN`
+3. Mapa: `https://tvoje-instance/map?token=MAP_TOKEN` — na mobilu "Přidat na
+   plochu" ji nainstaluje jako appku (s ikonou i tvým tokenem, takže se
+   otevře rovnou do tvé mapy)
 
 Detailní technická dokumentace: [CLAUDE.md](CLAUDE.md) · plán featur:
 [ROADMAP.md](ROADMAP.md) · změny: [CHANGELOG.md](CHANGELOG.md)
 
 ## Příkazy bota
 
-- pošli URL videa → uloží místo
+- pošli URL videa nebo fotky/karuselu z Instagramu → uloží místo
 - pošli svoji polohu (Telegram attachment Location) → nejbližší uložená místa
 - `/hledej <text>` (alias `/search`) — hledání v uložených místech
 - `/zkontroluj` (alias `/dedup`) — kontrola duplicitních míst
@@ -200,8 +204,9 @@ Obojí automaticky kontroluje GitHub Actions na každý push a pull request.
   `vm.tiktok.com` share linků) a stahuje anonymně; spolehlivost z datacenter
   IP se může měnit podle anti-bot opatření TikToku. Kdyby stahování selhávalo,
   založ issue s chybovou hláškou z odpovědi bota.
-- **Gemini free tier má rate limity.** Při rychlém posílání více videí za
-  sebou může analýza dočasně selhat — chvíli počkej a pošli video znovu.
+- **Gemini free tier má rate limity.** Bot už dočasné 503/429 chyby sám
+  opakuje (s prodlevou); pokud selže i tak při rychlém posílání více videí
+  za sebou, chvíli počkej a pošli video znovu.
 - **Délka videa.** Bot je stavěný na krátká videa (Reels, TikTok, Shorts).
   Videa delší než 10 minut odmítne ještě před stažením — limit jde změnit
   proměnnou `MAX_VIDEO_MINUTES` (0 = bez limitu). I u povolených delších
