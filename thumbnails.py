@@ -58,7 +58,12 @@ def _save_from_file(place_url: str, source_path: str) -> bool:
         os.makedirs(THUMB_DIR, exist_ok=True)
         shutil.copyfile(source_path, thumbnail_path(place_url))
         return True
-    except OSError as e:
+    except Exception as e:
+        # Broad on purpose, not just OSError: this whole module's contract (see the
+        # module docstring) is that a thumbnail failure must never break saving a
+        # place. A bug here previously passed the caller a non-string place_url,
+        # which crashed on .encode() inside thumbnail_path() - an AttributeError,
+        # not an OSError, so it went uncaught and took process_video() down with it.
         print(f"[thumbnails] copy failed for {place_url}: {e}")
         return False
 
@@ -87,7 +92,7 @@ def _save_from_place_photo(place_url: str, photo_name: str) -> bool:
         with open(thumbnail_path(place_url), "wb") as f:
             f.write(data)
         return True
-    except OSError as e:
+    except Exception as e:  # broad on purpose - see _save_from_file's comment
         print(f"[thumbnails] write failed for {place_url}: {e}")
         return False
 
