@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from i18n import FALLBACK_CATEGORY
 from models import VideoMetadata
+from thumbnails import thumb_key
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _client = None
@@ -95,6 +96,9 @@ def _parse_row(row: list, row_number: int) -> dict | None:
         "geo_source": (row[17] or "").strip(),
         # Older rows predate this column - they are all videos.
         "media_type": (row[18] or "video").strip(),
+        # Cache key for /thumb/<key>.jpg - hashed from the url, not the row
+        # number, so it survives rows shifting after a delete (see thumbnails.py).
+        "thumb_key": thumb_key(row[1]),
     }
 
 

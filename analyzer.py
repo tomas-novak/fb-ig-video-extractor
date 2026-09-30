@@ -7,7 +7,7 @@ from extractor import extract_source
 from i18n import CATEGORIES, FALLBACK_CATEGORY, LANG, t
 from models import VideoMetadata
 
-GEMINI_MODEL = "gemini-3.6-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 
 _client = None
 
