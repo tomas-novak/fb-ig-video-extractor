@@ -14,9 +14,10 @@ by hand outside the app entirely - either way a row-number key would silently
 end up pointing at the wrong place's photo. The URL is already the row's
 natural stable identity (same value find_duplicate() dedupes on).
 
-THUMB_DIR is a mounted Docker volume (see docker-compose.yml) so cached
-thumbnails survive container rebuilds; served back via GET /thumb/<key>.jpg
-in main.py.
+THUMB_DIR is a relative path by default, resolved under the process's working
+directory (see its definition below for why) - on Docker that's also a mounted
+volume (see docker-compose.yml) so cached thumbnails survive container
+rebuilds; served back via GET /thumb/<key>.jpg in main.py.
 """
 import hashlib
 import os
@@ -24,7 +25,14 @@ import shutil
 
 import httpx
 
-THUMB_DIR = os.getenv("THUMB_DIR", "/app/data/thumbnails")
+# Relative by default (not e.g. "/app/data/thumbnails") so it resolves under
+# whichever working directory the process actually runs from - /app in the
+# Docker image, /opt/fbig-bot on the VPS deploy - instead of hardcoding one of
+# them and silently failing to create/write it under the other (a non-root
+# service user can't create top-level directories like /app in the first
+# place, so this previously failed silently on the VPS: save_thumbnail() is
+# deliberately best-effort and never raises, so nothing ever surfaced it).
+THUMB_DIR = os.getenv("THUMB_DIR", "data/thumbnails")
 
 
 def thumb_key(place_url: str) -> str:

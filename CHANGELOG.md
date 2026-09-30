@@ -46,7 +46,20 @@ and will be rolled into a version at the first public release.
   Pages) with sample places — category/tag filtering and the visited toggle
   work the same as the real `/map`, with no bot or backend behind it.
 
+### Added
+- Rotating log file (`logsetup.py`, `data/logs/bot.log` by default) alongside the existing
+  stdout/journal output, world-readable so it can be read without root access. Unhandled
+  failures in `process_video` now log the full traceback instead of only the bare message
+  shown to the Telegram user, and a Gemini JSON-mode parse failure logs the raw response
+  that caused it — previously such a failure left no trace to diagnose from at all.
+
 ### Fixed
+- `THUMB_DIR` (map-popup thumbnail cache) defaulted to the Docker-only path
+  `/app/data/thumbnails`. On the VPS deploy this silently failed on every save — a non-root
+  service user can't create a top-level `/app` directory, and `save_thumbnail()` is
+  deliberately best-effort and never raises, so nothing surfaced it. Default changed to the
+  relative path `data/thumbnails`, which resolves correctly under either deployment's own
+  working directory without needing a manual override.
 - The map's tiles started returning 403 "Access blocked" — `tile.openstreetmap.org`
   disallows any embedded/production use, and our traffic tripped that block. Switched
   `/map` and the static demo to CARTO's basemap CDN, which is meant for this and stays
