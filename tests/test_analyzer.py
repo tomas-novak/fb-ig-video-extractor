@@ -75,6 +75,18 @@ class TestParseMetadata:
         with pytest.raises(json.JSONDecodeError):
             parse_metadata("tohle není json", "https://www.facebook.com/reel/1")
 
+    def test_list_response_uses_first_item(self):
+        # A video covering several places can make Gemini return a JSON array instead of
+        # the single object the prompt asks for - the real-world crash this guards against
+        # was 'list' object has no attribute 'get'.
+        m = parse_metadata(f"[{GEMINI_JSON}, {{}}]", "https://www.facebook.com/reel/1")
+        assert m.location_name == "Koupaliště Slaný"
+
+    def test_empty_list_response_gets_defaults(self):
+        m = parse_metadata("[]", "https://www.facebook.com/reel/1")
+        assert m.location_name == ""
+        assert m.category == "jiné"
+
 
 class TestSafeFloat:
     def test_float(self):
