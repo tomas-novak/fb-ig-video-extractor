@@ -52,6 +52,7 @@ FB_IG_video_extractor/
 ├── i18n.py            # bot language (BOT_LANGUAGE) + categories (CATEGORIES) + texts
 ├── sheets.py          # Google Sheets writing
 ├── map_page.py        # /map HTML page (Leaflet + CARTO tiles, filters, i18n)
+├── logsetup.py        # rotating log file (data/logs/bot.log), readable without root
 ├── models.py          # data models (VideoMetadata)
 ├── requirements.txt
 ├── deploy/            # systemd unit, Caddyfile, update and DuckDNS scripts

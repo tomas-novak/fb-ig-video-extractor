@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from google import genai
@@ -9,6 +10,7 @@ from models import VideoMetadata
 
 GEMINI_MODEL = "gemini-3.8-flash"
 
+logger = logging.getLogger(__name__)
 _client = None
 
 
@@ -230,7 +232,15 @@ def analyze(media_path: str, url: str, yt_info: dict) -> VideoMetadata:
         # Gemini returned no text part (safety block, empty response, MAX_TOKENS without text)
         raise RuntimeError(t("gemini_no_text", error=e))
 
-    metadata = parse_metadata(raw, url, author=author, title=title)
+    try:
+        metadata = parse_metadata(raw, url, author=author, title=title)
+    except Exception:
+        # The raw response is the one piece of evidence that actually explains a parse
+        # failure (an unexpected shape, stray text despite JSON mode, etc.) - without it,
+        # a future failure here is just a bare exception message with no way to tell why.
+        logger.error("Gemini response failed to parse for %s. Raw response: %s",
+                     url, raw[:4000])
+        raise
     metadata.media_type = "photo" if is_photo else "video"
     return metadata
 

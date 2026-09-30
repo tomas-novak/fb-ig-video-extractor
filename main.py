@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import re
 import secrets
@@ -11,6 +12,10 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 
 load_dotenv()
+
+from logsetup import setup_logging
+setup_logging()
+logger = logging.getLogger(__name__)
 
 from extractor import download_media, ffmpeg_diagnostics
 from analyzer import analyze
@@ -379,6 +384,7 @@ async def process_video(chat_id: int, url: str) -> None:
         await send_message(chat_id, reply)
 
     except Exception as e:
+        logger.exception("process_video failed for %s", url)
         await send_message(chat_id, friendly_error(str(e)))
     finally:
         if media_path and os.path.exists(media_path):
