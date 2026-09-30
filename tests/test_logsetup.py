@@ -57,8 +57,8 @@ class TestSetupLogging:
         logger = logging.getLogger("test_logsetup_idempotent")
         logger.info("one line")
         with open(tmp_log_dir.LOG_FILE) as f:
-            lines = [l for l in f.read().splitlines() if "one line" in l]
-        assert len(lines) == 1
+            matching_lines = [line for line in f.read().splitlines() if "one line" in line]
+        assert len(matching_lines) == 1
 
     def test_http_client_request_urls_are_not_logged(self, tmp_log_dir):
         # The Telegram Bot API embeds the bot token directly in the request URL
