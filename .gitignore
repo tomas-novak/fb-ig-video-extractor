@@ -10,3 +10,6 @@ __pycache__/
 *.tmp
 venv/
 .venv/
+# Runtime data with relative defaults (THUMB_DIR, LOG_DIR) - lands under the repo
+# checkout when run locally, must never be committed.
+data/
