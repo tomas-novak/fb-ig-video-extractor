@@ -313,6 +313,11 @@ journalctl -u fbig-bot -n 100      # last 100 lines
 journalctl -u fbig-bot --since "1 hour ago"
 ```
 
+The same output also lands in a rotating file at `/opt/fbig-bot/data/logs/bot.log`
+(world-readable, so it works without `journalctl` access/root - e.g. `tail -f
+/opt/fbig-bot/data/logs/bot.log`). A `process_video` failure logs a full traceback
+there, and a Gemini JSON-parsing failure logs the raw response that caused it.
+
 **Restart:**
 
 ```bash

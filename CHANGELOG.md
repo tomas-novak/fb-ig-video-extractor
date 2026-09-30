@@ -45,13 +45,48 @@ and will be rolled into a version at the first public release.
 - A public, static demo of the map (`docs/index.html`, deployed via GitHub
   Pages) with sample places — category/tag filtering and the visited toggle
   work the same as the real `/map`, with no bot or backend behind it.
+- Instagram photo and carousel post support (`extractor.py`, `analyzer.py`) —
+  yt-dlp has no downloadable video formats for these at all. Carousels still
+  expose raw thumbnails via `extract_info(process=False)`; single-photo posts
+  raise before returning anything usable even with that, so those fall back to
+  scraping the public post page's Open Graph tags directly. Photo uploads go
+  through a photo-specific Gemini prompt (no audio/transcript assumptions) and
+  each row is tagged with a new `media_type` column (`"video"`/`"photo"`).
+- Map popup thumbnails (`thumbnails.py`; `GET /thumb/<key>.jpg`, token-protected) —
+  a small preview per row, preferring the place's own source photo/video-thumbnail
+  and falling back to a Places Photo (New) lookup, cached to disk so repeat views
+  never re-hit that API's separate free quota. The cache key is an md5 hash of the
+  place's own URL, not the sheet row number — row numbers shift whenever
+  `delete_place_rows()` removes an earlier row, which would otherwise attach a
+  cached photo to the wrong place.
+- A landing page for `GET /` (`landing_page.py`) — previously a bare 404 for
+  anyone/anything landing on the domain.
+- PWA support: `/manifest.json` (the installing page's token is baked into
+  `start_url` server-side, since Safari reads `<link rel="manifest">` before any
+  JS runs), `/icon-192.png`/`/icon-512.png`, and a dedicated `/apple-touch-icon.png`.
+  "Add to Home Screen" on `/map` now installs a working app icon.
+- Map: an always-visible full-text search bar (previously inside the collapsible
+  filter panel) and a "find me" button that centers the map on the browser's
+  geolocation.
+- Migrated `analyzer.py` from the deprecated `google-generativeai` SDK to
+  `google-genai` — the old SDK's `upload_file()` routes through a legacy Google
+  API Discovery endpoint that rejects the newer `AQ.*`-prefixed API key format.
+  Gemini retries now also cover `429` rate-limit responses, not just `503`.
+- Rotating log file (`logsetup.py`, `data/logs/bot.log` by default) alongside the
+  existing stdout/journal output, world-readable so it can be read without root
+  access. Unhandled failures in `process_video` now log the full traceback instead
+  of only the bare message shown to the Telegram user, and a Gemini JSON-mode
+  parse failure logs the raw response that caused it — previously such a failure
+  left no trace to diagnose from at all.
 
-### Added
-- Rotating log file (`logsetup.py`, `data/logs/bot.log` by default) alongside the existing
-  stdout/journal output, world-readable so it can be read without root access. Unhandled
-  failures in `process_video` now log the full traceback instead of only the bare message
-  shown to the Telegram user, and a Gemini JSON-mode parse failure logs the raw response
-  that caused it — previously such a failure left no trace to diagnose from at all.
+### Security
+- The rotating log file above initially let `httpx`/`httpcore`'s default `INFO`
+  request logging through to the root logger — since the Telegram Bot API embeds
+  the bot token directly in the request URL (not a header), the very first
+  production startup logged it in plain text into that (deliberately
+  world-readable) file. Those loggers, plus `urllib3`/`google_genai`, are now kept
+  at `WARNING` so only real problems get logged, never the routine line carrying
+  the credential.
 
 ### Fixed
 - `THUMB_DIR` (map-popup thumbnail cache) defaulted to the Docker-only path
@@ -75,7 +110,7 @@ and will be rolled into a version at the first public release.
 
 ### Existing features (state before the changelog was introduced)
 - Telegram bot: saving a place from a Facebook/Instagram video URL (yt-dlp +
-  Gemini 2.5 Flash + Google Sheets), duplicate detection by URL and video ID.
+  Gemini + Google Sheets), duplicate detection by URL and video ID.
 - User whitelist (`TELEGRAM_ALLOWED_USERS`), the `/id` command.
 - Geocoding via the Google Places API (exact coordinates + a maps link).
 - Interactive map (`/map`) with filters, deletion and marking places as visited;
