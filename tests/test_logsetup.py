@@ -40,3 +40,22 @@ class TestSetupLogging:
             content = f.read()
         assert "ValueError: simulated failure" in content
         assert "Traceback" in content
+
+    def test_calling_twice_does_not_duplicate_handlers(self, tmp_log_dir):
+        # uvicorn.run("main:app", ...) re-imports main.py under the module name "main"
+        # even while it is already running as "__main__" - same file, same process, a
+        # second execution of its top-level code, so setup_logging() actually gets
+        # called twice in a real deployment. Without a guard this would attach two
+        # independent handlers on the same file (every line logged twice, and two
+        # RotatingFileHandlers doing their own rollover on one path can split/discard
+        # history).
+        tmp_log_dir.setup_logging()
+        first_count = len(logging.getLogger().handlers)
+        tmp_log_dir.setup_logging()
+        assert len(logging.getLogger().handlers) == first_count
+
+        logger = logging.getLogger("test_logsetup_idempotent")
+        logger.info("one line")
+        with open(tmp_log_dir.LOG_FILE) as f:
+            lines = [l for l in f.read().splitlines() if "one line" in l]
+        assert len(lines) == 1
