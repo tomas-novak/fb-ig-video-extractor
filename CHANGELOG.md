@@ -55,6 +55,10 @@ and will be rolled into a version at the first public release.
   `strict-origin-when-cross-origin` so CARTO's Referer-based key restriction has something
   to check — this still keeps the `?token=` in the page's own URL from leaking to CARTO,
   since only the origin (not the full URL) is sent cross-origin.
+- Saving a video crashed with `'list' object has no attribute 'get'` when Gemini's JSON-mode
+  response was a JSON array instead of the single object the prompt asks for (seen on a Reel
+  covering several distinct places). `parse_metadata()` now uses the first item of a list
+  response instead of crashing.
 
 ### Existing features (state before the changelog was introduced)
 - Telegram bot: saving a place from a Facebook/Instagram video URL (yt-dlp +

@@ -189,8 +189,13 @@ def strip_fences(raw: str) -> str:
 
 def parse_metadata(raw: str, url: str, author: str = "", title: str = "") -> VideoMetadata:
     """Convert Gemini's JSON response to VideoMetadata. Raises json.JSONDecodeError."""
-    # JSON mode guarantees clean JSON, but strip any fences just in case
+    # JSON mode guarantees clean JSON, but not that the top level is an object - a video
+    # covering several distinct places can make the model return a JSON array instead of
+    # the single object the prompt asks for. Use the first (usually the main/first-shown)
+    # place in that case rather than crashing on data.get().
     data = json.loads(strip_fences(raw))
+    if isinstance(data, list):
+        data = data[0] if data else {}
 
     return VideoMetadata(
         url=url,
